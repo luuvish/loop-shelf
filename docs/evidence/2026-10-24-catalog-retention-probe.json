@@ -1,0 +1,434 @@
+{
+  "measuredAt": "2026-10-24T14:39:43.895Z",
+  "fixture": {
+    "sampleKind": "synthetic",
+    "albums": 1,
+    "tracks": 10,
+    "observations": 10000,
+    "retainedDtoRows": 100000
+  },
+  "environment": {
+    "node": "v24.21.0",
+    "sqlite": {
+      "version": "3.53.4"
+    },
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M1 Ultra",
+    "memoryGiB": 128
+  },
+  "method": {
+    "concurrency": 1,
+    "storage": "in-memory",
+    "analyze": false,
+    "warmups": 3,
+    "samples": 30,
+    "percentile": "nearest-rank",
+    "scope": "retention reconciliation only, no expiration writes, network, auth or browser"
+  },
+  "code": {
+    "src/catalog/retention.ts": "4e438f0269b7d3165f098b91333dee04948f318b73031f7219021130fcb05df2",
+    "migrations/0012_catalog_retention.sql": "56adfd0ad9fb215480f28be23ebf0922f08e28fc0660fba16d852869f86a87f8",
+    "scripts/bench-catalog-retention.ts": "0de021ad05d25c57a4017098b033d68d56e73018176a09c956d3cfc17ce22b3b"
+  },
+  "measurements": [
+    {
+      "distribution": "legacy-unleased",
+      "withoutIndex": {
+        "p50Ms": 5.208582999999976,
+        "p95Ms": 5.397333000000003,
+        "samplesMs": [
+          4.916291000000001,
+          4.857124999999996,
+          4.928458999999975,
+          4.869124999999997,
+          4.895375000000001,
+          4.948624999999993,
+          4.945290999999997,
+          4.868041000000005,
+          5.133667000000003,
+          4.978084000000024,
+          4.942042000000015,
+          4.949999999999989,
+          5.137333000000012,
+          5.052917000000036,
+          5.265541999999982,
+          5.245291000000009,
+          5.2704160000000115,
+          5.249375000000043,
+          5.215709000000004,
+          5.301249999999982,
+          5.346665999999971,
+          5.2818340000000035,
+          5.25629200000003,
+          5.253417000000013,
+          5.208582999999976,
+          5.261124999999993,
+          5.271500000000003,
+          5.411958000000027,
+          5.397333000000003,
+          5.366041999999993
+        ],
+        "queries": [
+          {
+            "sql": "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='catalog_source_kind'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 2,
+                "parent": 0,
+                "notused": 216,
+                "detail": "SCAN sqlite_schema"
+              }
+            ]
+          },
+          {
+            "sql": "SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='synthetic' AND o.expires_at<=?\n      UNION ALL SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='live-capture'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 1,
+                "parent": 0,
+                "notused": 0,
+                "detail": "COMPOUND QUERY"
+              },
+              {
+                "id": 2,
+                "parent": 1,
+                "notused": 0,
+                "detail": "LEFT-MOST SUBQUERY"
+              },
+              {
+                "id": 6,
+                "parent": 2,
+                "notused": 216,
+                "detail": "SCAN o"
+              },
+              {
+                "id": 16,
+                "parent": 2,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              },
+              {
+                "id": 30,
+                "parent": 1,
+                "notused": 0,
+                "detail": "UNION ALL"
+              },
+              {
+                "id": 34,
+                "parent": 30,
+                "notused": 216,
+                "detail": "SCAN o"
+              },
+              {
+                "id": 42,
+                "parent": 30,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              }
+            ]
+          }
+        ]
+      },
+      "withIndex": {
+        "p50Ms": 0.04879199999999173,
+        "p95Ms": 0.05554100000000517,
+        "samplesMs": [
+          0.05529099999995424,
+          0.0569590000000062,
+          0.0508750000000191,
+          0.05554100000000517,
+          0.050749999999993634,
+          0.04733299999998053,
+          0.05195800000001327,
+          0.04679199999998218,
+          0.047000000000025466,
+          0.04879199999999173,
+          0.0524159999999938,
+          0.05216699999999719,
+          0.046333000000004176,
+          0.051375000000007276,
+          0.04662500000000591,
+          0.04754200000002129,
+          0.04574999999999818,
+          0.05204100000003109,
+          0.0462500000000432,
+          0.04929199999997991,
+          0.04425000000003365,
+          0.0472920000000272,
+          0.04579200000000583,
+          0.04766699999998991,
+          0.046333000000004176,
+          0.05112500000001319,
+          0.05016699999998764,
+          0.050583999999957996,
+          0.05137499999995043,
+          0.04679199999998218
+        ],
+        "queries": [
+          {
+            "sql": "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='catalog_source_kind'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 2,
+                "parent": 0,
+                "notused": 216,
+                "detail": "SCAN sqlite_schema"
+              }
+            ]
+          },
+          {
+            "sql": "SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='synthetic' AND o.expires_at<=?\n      UNION ALL SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='live-capture'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 1,
+                "parent": 0,
+                "notused": 0,
+                "detail": "COMPOUND QUERY"
+              },
+              {
+                "id": 2,
+                "parent": 1,
+                "notused": 0,
+                "detail": "LEFT-MOST SUBQUERY"
+              },
+              {
+                "id": 7,
+                "parent": 2,
+                "notused": 48,
+                "detail": "SEARCH o USING INDEX catalog_observation_retention_idx (sample_kind=? AND expires_at>? AND expires_at<?)"
+              },
+              {
+                "id": 17,
+                "parent": 2,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              },
+              {
+                "id": 31,
+                "parent": 1,
+                "notused": 0,
+                "detail": "UNION ALL"
+              },
+              {
+                "id": 36,
+                "parent": 31,
+                "notused": 60,
+                "detail": "SEARCH o USING INDEX catalog_observation_retention_idx (sample_kind=? AND expires_at>?)"
+              },
+              {
+                "id": 43,
+                "parent": 31,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "distribution": "future-synthetic-lease",
+      "withoutIndex": {
+        "p50Ms": 5.808374999999955,
+        "p95Ms": 5.9805410000000165,
+        "samplesMs": [
+          5.835332999999991,
+          5.8474579999999605,
+          5.783167000000049,
+          5.833459000000062,
+          5.7862499999999955,
+          5.802625000000035,
+          5.801500000000033,
+          5.808374999999955,
+          5.873458000000028,
+          5.8117919999999685,
+          5.785167000000001,
+          5.813083000000006,
+          5.684417000000053,
+          5.790459000000055,
+          5.806791999999973,
+          5.813792000000035,
+          5.92958299999998,
+          5.707833000000051,
+          5.763707999999951,
+          5.780167000000006,
+          5.83420799999999,
+          5.777375000000006,
+          5.8331249999999955,
+          5.795415999999932,
+          5.82995799999992,
+          5.611541999999986,
+          5.825167000000079,
+          5.852958000000058,
+          5.9805410000000165,
+          6.083624999999984
+        ],
+        "queries": [
+          {
+            "sql": "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='catalog_source_kind'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 2,
+                "parent": 0,
+                "notused": 216,
+                "detail": "SCAN sqlite_schema"
+              }
+            ]
+          },
+          {
+            "sql": "SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='synthetic' AND o.expires_at<=?\n      UNION ALL SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='live-capture'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 1,
+                "parent": 0,
+                "notused": 0,
+                "detail": "COMPOUND QUERY"
+              },
+              {
+                "id": 2,
+                "parent": 1,
+                "notused": 0,
+                "detail": "LEFT-MOST SUBQUERY"
+              },
+              {
+                "id": 6,
+                "parent": 2,
+                "notused": 216,
+                "detail": "SCAN o"
+              },
+              {
+                "id": 16,
+                "parent": 2,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              },
+              {
+                "id": 30,
+                "parent": 1,
+                "notused": 0,
+                "detail": "UNION ALL"
+              },
+              {
+                "id": 34,
+                "parent": 30,
+                "notused": 216,
+                "detail": "SCAN o"
+              },
+              {
+                "id": 42,
+                "parent": 30,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              }
+            ]
+          }
+        ]
+      },
+      "withIndex": {
+        "p50Ms": 0.050082999999972344,
+        "p95Ms": 0.0771670000000313,
+        "samplesMs": [
+          0.0771670000000313,
+          0.048874999999952706,
+          0.05154200000004039,
+          0.05050000000005639,
+          0.05412499999999909,
+          0.05204100000003109,
+          0.055041999999957625,
+          0.048958999999968,
+          0.0544999999999618,
+          0.046540999999933774,
+          0.05129199999998946,
+          0.049958000000060565,
+          0.049958000000060565,
+          0.04895900000008169,
+          0.04862500000001546,
+          0.05433299999992869,
+          0.046583999999938897,
+          0.048874999999952706,
+          0.050082999999972344,
+          0.08137499999997999,
+          0.05099999999993088,
+          0.05412499999999909,
+          0.05316600000003291,
+          0.06224999999994907,
+          0.04691600000001017,
+          0.05220900000006168,
+          0.04837500000007822,
+          0.048583000000007814,
+          0.048874999999952706,
+          0.04949999999996635
+        ],
+        "queries": [
+          {
+            "sql": "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='catalog_source_kind'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 2,
+                "parent": 0,
+                "notused": 216,
+                "detail": "SCAN sqlite_schema"
+              }
+            ]
+          },
+          {
+            "sql": "SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='synthetic' AND o.expires_at<=?\n      UNION ALL SELECT o.id,o.source_entity_id,o.sample_kind,o.retention_revision,o.expires_at,s.source_id,s.entity_id\n      FROM catalog_observation o JOIN source_entity s ON s.id=o.source_entity_id\n      WHERE o.content_state='active' AND o.expires_at IS NOT NULL AND o.sample_kind='live-capture'",
+            "calls": 1,
+            "plan": [
+              {
+                "id": 1,
+                "parent": 0,
+                "notused": 0,
+                "detail": "COMPOUND QUERY"
+              },
+              {
+                "id": 2,
+                "parent": 1,
+                "notused": 0,
+                "detail": "LEFT-MOST SUBQUERY"
+              },
+              {
+                "id": 7,
+                "parent": 2,
+                "notused": 48,
+                "detail": "SEARCH o USING INDEX catalog_observation_retention_idx (sample_kind=? AND expires_at>? AND expires_at<?)"
+              },
+              {
+                "id": 17,
+                "parent": 2,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              },
+              {
+                "id": 31,
+                "parent": 1,
+                "notused": 0,
+                "detail": "UNION ALL"
+              },
+              {
+                "id": 36,
+                "parent": 31,
+                "notused": 60,
+                "detail": "SEARCH o USING INDEX catalog_observation_retention_idx (sample_kind=? AND expires_at>?)"
+              },
+              {
+                "id": 43,
+                "parent": 31,
+                "notused": 46,
+                "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

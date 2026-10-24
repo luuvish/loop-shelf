@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 1,
+  "scope": "Limited metadata structure verification; permission and browser playback remain unverified.",
+  "runtime": "v26.8.2",
+  "records": [
+    {
+      "sourceId": "khinsider",
+      "kind": "search",
+      "url": "https://downloads.khinsider.com/search?search=chrono+trigger",
+      "capturedAt": "2026-10-18T14:06:57.000Z",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": "frame-ancestors 'none'",
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "khinsider",
+        "pageUrl": "https://downloads.khinsider.com/search?search=chrono+trigger",
+        "capturedAt": "2026-10-18T14:06:57.000Z",
+        "parsedAt": "2026-10-18T14:39:37.085Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "6c179d0d13f93b154724bb4139c5b665c8087b6d81030290e89d86770563e845",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "pagination_and_result_limit_unverified"
+        ],
+        "reportedCount": 202,
+        "parsedCount": 202,
+        "nextPageUrl": null,
+        "coverage": "reported-count-matches",
+        "resultLimit": null
+      },
+      "request": {
+        "method": "GET",
+        "origin": null,
+        "userAgent": "curl default",
+        "timestampBasis": "response Date (approximate capture time)",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "khinsider",
+      "kind": "album",
+      "url": "https://downloads.khinsider.com/game-soundtracks/album/chrono-trigger-2015",
+      "capturedAt": "2026-10-18T14:07:34.000Z",
+      "sampleKind": "live-capture",
+      "httpStatus": 403,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": "SAMEORIGIN",
+        "retryAfter": null
+      },
+      "parse": {
+        "ok": false,
+        "code": "blocked",
+        "message": "Access denied; do not retry or bypass"
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "curl default",
+        "timestampBasis": "response Date (approximate capture time)",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "search",
+      "url": "https://www.zophar.net/search?search=chrono+trigger",
+      "capturedAt": "2026-10-18T14:06:55.000Z",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/search?search=chrono+trigger",
+        "capturedAt": "2026-10-18T14:06:55.000Z",
+        "parsedAt": "2026-10-18T14:39:37.090Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "c7f8721d54fc9864a255d9c6815489e6916c444cd674a304b31bf6aa3d4ce662",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "pagination_and_result_limit_unverified"
+        ],
+        "reportedCount": 4,
+        "parsedCount": 4,
+        "nextPageUrl": null,
+        "coverage": "reported-count-matches",
+        "resultLimit": null
+      },
+      "request": {
+        "method": "GET",
+        "origin": null,
+        "userAgent": "curl default",
+        "timestampBasis": "response Date (approximate capture time)",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "album",
+      "url": "https://www.zophar.net/music/nintendo-snes-spc/chrono-trigger.html",
+      "capturedAt": "2026-10-18T14:07:35.000Z",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/music/nintendo-snes-spc/chrono-trigger.html",
+        "capturedAt": "2026-10-18T14:07:35.000Z",
+        "parsedAt": "2026-10-18T14:39:37.098Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "6f79ffdea7cac1fcdf36f43742fbb04b8c41aaaef94ec9b51ddfd1a278c9941b",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "duplicate_display_numbers",
+          "stable_track_keys_unverified",
+          "release_date_semantics_unverified"
+        ],
+        "externalKey": "nintendo-snes-spc/chrono-trigger",
+        "trackCount": 92,
+        "platforms": [
+          "Nintendo SNES (SPC)"
+        ],
+        "duplicateDisplayNumberCount": 27,
+        "missingDurationCount": 0,
+        "claimLabels": [
+          "Release date:",
+          "Console:",
+          "Developer:",
+          "Publisher:",
+          "Ripped by:",
+          "Tagged by:"
+        ],
+        "playback": "unverified"
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "curl default",
+        "timestampBasis": "response Date (approximate capture time)",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "search",
+      "url": "https://www.zophar.net/search?search=%E3%82%AF%E3%83%AD%E3%83%8E",
+      "capturedAt": "2026-10-18T14:34:17.321173+00:00",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/search?search=%E3%82%AF%E3%83%AD%E3%83%8E",
+        "capturedAt": "2026-10-18T14:34:17.321173+00:00",
+        "parsedAt": "2026-10-18T14:39:37.100Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "46a9098e04427d64fe96a6fed44de6b1b19042449b7b18a9bdcd0df5d45b9b4a",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "pagination_and_result_limit_unverified"
+        ],
+        "reportedCount": 0,
+        "parsedCount": 0,
+        "nextPageUrl": null,
+        "coverage": "reported-count-matches",
+        "resultLimit": null
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "LoopShelfResearch/0.1 (+https://github.com/luuvish/loop-shelf)",
+        "timestampBasis": "capture completed at client",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "search",
+      "url": "https://www.zophar.net/search?search=loopshelf-no-match-20261018",
+      "capturedAt": "2026-10-18T14:34:21.048027+00:00",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/search?search=loopshelf-no-match-20261018",
+        "capturedAt": "2026-10-18T14:34:21.048027+00:00",
+        "parsedAt": "2026-10-18T14:39:37.101Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "46a9098e04427d64fe96a6fed44de6b1b19042449b7b18a9bdcd0df5d45b9b4a",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "pagination_and_result_limit_unverified"
+        ],
+        "reportedCount": 0,
+        "parsedCount": 0,
+        "nextPageUrl": null,
+        "coverage": "reported-count-matches",
+        "resultLimit": null
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "LoopShelfResearch/0.1 (+https://github.com/luuvish/loop-shelf)",
+        "timestampBasis": "capture completed at client",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "album",
+      "url": "https://www.zophar.net/music/playstation-psf/chrono-trigger.html",
+      "capturedAt": "2026-10-18T14:34:25.013073+00:00",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/music/playstation-psf/chrono-trigger.html",
+        "capturedAt": "2026-10-18T14:34:25.013073+00:00",
+        "parsedAt": "2026-10-18T14:39:37.107Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "ca8bc968ef19fccb2c9bc7de796df7a8e427cb38a295dab5eeef9b19b152a2ba",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "stable_track_keys_unverified",
+          "release_date_semantics_unverified"
+        ],
+        "externalKey": "playstation-psf/chrono-trigger",
+        "trackCount": 75,
+        "platforms": [
+          "Playstation (PSF)"
+        ],
+        "duplicateDisplayNumberCount": 0,
+        "missingDurationCount": 0,
+        "claimLabels": [
+          "Release date:",
+          "Console:",
+          "Developer:",
+          "Publisher:"
+        ],
+        "playback": "unverified"
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "LoopShelfResearch/0.1 (+https://github.com/luuvish/loop-shelf)",
+        "timestampBasis": "capture completed at client",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    },
+    {
+      "sourceId": "zophar",
+      "kind": "album",
+      "url": "https://www.zophar.net/music/nintendo-ds-2sf/chrono-trigger.html",
+      "capturedAt": "2026-10-18T14:34:29.137977+00:00",
+      "sampleKind": "live-capture",
+      "httpStatus": 200,
+      "headers": {
+        "contentType": "text/html; charset=UTF-8",
+        "accessControlAllowOrigin": null,
+        "contentSecurityPolicy": null,
+        "xFrameOptions": null,
+        "retryAfter": null
+      },
+      "provenance": {
+        "sourceId": "zophar",
+        "pageUrl": "https://www.zophar.net/music/nintendo-ds-2sf/chrono-trigger.html",
+        "capturedAt": "2026-10-18T14:34:29.137977+00:00",
+        "parsedAt": "2026-10-18T14:39:37.112Z",
+        "parserVersion": "0.1.0",
+        "bodySha256": "f5c3a43a4ee73a15792ac2b2d55753bd0c03e630236329abcb8b663925dc689b",
+        "sampleKind": "live-capture"
+      },
+      "parse": {
+        "ok": true,
+        "warnings": [
+          "stable_track_keys_unverified",
+          "release_date_semantics_unverified"
+        ],
+        "externalKey": "nintendo-ds-2sf/chrono-trigger",
+        "trackCount": 71,
+        "platforms": [
+          "Nintendo DS (2SF)"
+        ],
+        "duplicateDisplayNumberCount": 0,
+        "missingDurationCount": 0,
+        "claimLabels": [
+          "Release date:",
+          "Console:",
+          "Developer:",
+          "Publisher:"
+        ],
+        "playback": "unverified"
+      },
+      "request": {
+        "method": "GET",
+        "origin": "http://localhost:5173",
+        "userAgent": "LoopShelfResearch/0.1 (+https://github.com/luuvish/loop-shelf)",
+        "timestampBasis": "capture completed at client",
+        "cookies": false,
+        "referer": false,
+        "redirectsFollowed": false
+      }
+    }
+  ]
+}

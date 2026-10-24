@@ -1,0 +1,4850 @@
+{
+  "measuredAt": "2026-10-24T05:05:03.754Z",
+  "fixtureVersion": "catalog-scale-v1",
+  "fixture": {
+    "albums": 10000,
+    "tracks": 100000,
+    "personal": 5000,
+    "otherPersonal": 1000,
+    "links": 100,
+    "detached": 100
+  },
+  "seedMs": 62877.168,
+  "databaseBytes": 242528256,
+  "environment": {
+    "node": "v24.21.0",
+    "sqlite": {
+      "version": "3.53.4"
+    },
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M1 Ultra",
+    "logicalCpus": 20,
+    "memoryGiB": 128,
+    "pragmas": {
+      "journal_mode": "wal",
+      "synchronous": 2,
+      "cache_size": -16000,
+      "page_size": 4096,
+      "automatic_index": 1
+    }
+  },
+  "method": {
+    "samples": 30,
+    "warmups": 3,
+    "percentile": "nearest-rank",
+    "concurrency": 1,
+    "analyze": false,
+    "cache": "same connection after service ingestion; warm OS cache; first is not a cold-disk measurement",
+    "timing": "service includes query preparation and projection; authenticated-inject includes auth/serialization but not TCP/browser or queue contention"
+  },
+  "migrations": [
+    {
+      "name": "0001_auth.sql",
+      "sha256": "10b6723e415c44ac1b915bd98ece5d04526d61b6440eea442b949c9bd3710eb0"
+    },
+    {
+      "name": "0002_catalog_library.sql",
+      "sha256": "d493609d4baa00609d73066f7bbca1262f0491d15edabad015a1283736a786be"
+    },
+    {
+      "name": "0003_bookmark_connections.sql",
+      "sha256": "98c26240529466748a6234ba8878b5bf7a05063bb2fe2517f3058157a844985c"
+    },
+    {
+      "name": "0004_import_revisions.sql",
+      "sha256": "f7e0bf4b45870084e31c649ed15ddf844609b238c2efbf8f979f2bcc77532c1e"
+    },
+    {
+      "name": "0005_bookmark_deletions.sql",
+      "sha256": "2af2e0c2a4c31c79e28418e9638a4cf74aedbe493c1df503d4368965fb8d7d87"
+    },
+    {
+      "name": "0006_catalog_observations.sql",
+      "sha256": "ccb106b5baad002b7128c038c9f404508206a629a5b9bf348bc0aa032e665c7c"
+    },
+    {
+      "name": "0007_catalog_removals.sql",
+      "sha256": "8ce5356a329f7afef5819ba0a69ebb0347a184df013f7edadbdf89a11987eb8d"
+    },
+    {
+      "name": "0008_catalog_track_adoptions.sql",
+      "sha256": "0c3539635e40a9407276bc0146aa5a40ca073b666a2bb9b425ca57bce8ac7ac2"
+    },
+    {
+      "name": "0009_catalog_library_links.sql",
+      "sha256": "347a32dba2508b12e88e7d1f04abcd4123f9d21838c826ec9f9aecb0f0c4c193"
+    },
+    {
+      "name": "0010_catalog_transfer.sql",
+      "sha256": "353a0f662169e95a2fc0be76e5786ec5bffe044c713aefaa958e7e30fe4328b2"
+    }
+  ],
+  "code": {
+    "src/catalog/browse.ts": "446396c2d9642d226abfe683f4993d777738c9de0d32e2f0e14d1ceed69cf03b",
+    "src/catalog/entities.ts": "35e7a53aeb2164e71b7ff7ce9287452f25d6fa5972db59c71b313e0ff42687e2",
+    "src/library/catalog.ts": "d5971fa1df0f15ff0f5303f36fa49414c93b09914001dfd7f9a99707c895350a",
+    "scripts/benchmarks/catalog-fixture.ts": "4608041c2c8921856bfdcd235f44c337d4c95908c0694e09d70459019a6241f2",
+    "scripts/bench-catalog.ts": "b322e7aa385fa5549c349e2785016db4f24c9fcae5593a05ae9fd16d7545493d"
+  },
+  "targetMs": 300,
+  "passed": true,
+  "measurements": [
+    {
+      "name": "albums-first",
+      "layer": "service",
+      "firstMs": 53.699,
+      "p50Ms": 50.952,
+      "p95Ms": 54.808,
+      "maxMs": 55.091,
+      "samplesMs": [
+        52.458,
+        51.053,
+        51.191,
+        55.091,
+        52.652,
+        51.452,
+        51.701,
+        51.033,
+        51.701,
+        48.209,
+        48.162,
+        47.694,
+        47.361,
+        46.692,
+        46.288,
+        47.895,
+        46.812,
+        46.857,
+        46.916,
+        46.167,
+        51.16,
+        52.318,
+        50.952,
+        47.4,
+        47.333,
+        46.659,
+        52.071,
+        53.842,
+        53.395,
+        54.808
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-common",
+      "layer": "service",
+      "firstMs": 51.972,
+      "p50Ms": 50.246,
+      "p95Ms": 55.244,
+      "maxMs": 55.44,
+      "samplesMs": [
+        52.163,
+        52.158,
+        50.846,
+        54.547,
+        51.997,
+        55.44,
+        50.951,
+        49.736,
+        53.154,
+        52.264,
+        47.895,
+        48.45,
+        47.632,
+        47.844,
+        46.904,
+        52.545,
+        49.092,
+        48.684,
+        50.246,
+        50.527,
+        51.352,
+        52.942,
+        51.524,
+        48.009,
+        47.406,
+        48.003,
+        47.591,
+        47.398,
+        48.286,
+        55.244
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-selective",
+      "layer": "service",
+      "firstMs": 31.464,
+      "p50Ms": 25.157,
+      "p95Ms": 26.614,
+      "maxMs": 27.058,
+      "samplesMs": [
+        25.01,
+        24.458,
+        24.837,
+        24.499,
+        24.168,
+        25.997,
+        25.344,
+        26.614,
+        25.783,
+        26.481,
+        27.058,
+        25,
+        25.205,
+        25.721,
+        25.816,
+        25.76,
+        25.066,
+        25.39,
+        24.611,
+        25.018,
+        26.111,
+        26.046,
+        25.157,
+        25.069,
+        25.465,
+        24.818,
+        24.637,
+        24.922,
+        23.905,
+        26.208
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-no-match",
+      "layer": "service",
+      "firstMs": 26.629,
+      "p50Ms": 23.489,
+      "p95Ms": 25.736,
+      "maxMs": 25.973,
+      "samplesMs": [
+        25.65,
+        25.736,
+        24.495,
+        23.487,
+        23.372,
+        23.386,
+        23.225,
+        23.061,
+        23.761,
+        23.992,
+        22.636,
+        24.294,
+        24.119,
+        23.864,
+        23.883,
+        23.264,
+        25.973,
+        24.663,
+        23.149,
+        23.394,
+        23.198,
+        22.798,
+        23.491,
+        24.636,
+        24.584,
+        23.489,
+        23.44,
+        23.055,
+        22.758,
+        24.123
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-korean-1",
+      "layer": "service",
+      "firstMs": 39.816,
+      "p50Ms": 36.411,
+      "p95Ms": 40.298,
+      "maxMs": 40.775,
+      "samplesMs": [
+        39.243,
+        40.298,
+        40.775,
+        36.273,
+        36.475,
+        36.755,
+        36.324,
+        36.39,
+        36.291,
+        37.537,
+        36.411,
+        36.058,
+        38.12,
+        37.799,
+        35.743,
+        35.686,
+        35.681,
+        38.155,
+        36.411,
+        35.605,
+        35.473,
+        36.45,
+        37.331,
+        35.905,
+        36.994,
+        37.438,
+        38.044,
+        34.749,
+        34.563,
+        37.033
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-japanese-2",
+      "layer": "service",
+      "firstMs": 37.965,
+      "p50Ms": 37.1,
+      "p95Ms": 39.372,
+      "maxMs": 39.54,
+      "samplesMs": [
+        38.751,
+        37.359,
+        34.197,
+        34.428,
+        33.943,
+        33.666,
+        33.657,
+        33.817,
+        33.851,
+        33.866,
+        36.004,
+        39.372,
+        38.552,
+        37.497,
+        38.019,
+        39.19,
+        39.54,
+        38.901,
+        38.438,
+        38.847,
+        37.1,
+        36.699,
+        36.217,
+        38.264,
+        37.958,
+        36.202,
+        37.698,
+        36.376,
+        37.129,
+        36.806
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-normalized",
+      "layer": "service",
+      "firstMs": 37.791,
+      "p50Ms": 35.126,
+      "p95Ms": 38.604,
+      "maxMs": 38.618,
+      "samplesMs": [
+        36.485,
+        38.414,
+        38.565,
+        37.835,
+        38.604,
+        35.345,
+        35.357,
+        35.602,
+        34.581,
+        37.092,
+        38.618,
+        35.239,
+        34.44,
+        34.386,
+        35.842,
+        34.961,
+        35.126,
+        34.647,
+        33.714,
+        34.377,
+        37.416,
+        37.248,
+        37.909,
+        34.544,
+        34.649,
+        33.956,
+        33.705,
+        34.283,
+        34.003,
+        33.705
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-literal",
+      "layer": "service",
+      "firstMs": 37.968,
+      "p50Ms": 36.517,
+      "p95Ms": 38.608,
+      "maxMs": 39.626,
+      "samplesMs": [
+        38.493,
+        38.608,
+        39.626,
+        36.672,
+        38.071,
+        36.373,
+        36.517,
+        36.056,
+        38.238,
+        37.791,
+        37.339,
+        36.157,
+        35.558,
+        35.747,
+        36.235,
+        35.248,
+        35.095,
+        35.153,
+        36.377,
+        36.239,
+        35.182,
+        35.032,
+        36.682,
+        38.256,
+        38.065,
+        36.819,
+        37.458,
+        34.342,
+        37.462,
+        37.465
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-source-page",
+      "layer": "service",
+      "firstMs": 51.634,
+      "p50Ms": 53.129,
+      "p95Ms": 55.432,
+      "maxMs": 55.999,
+      "samplesMs": [
+        52.729,
+        49.81,
+        48.812,
+        53.933,
+        52.37,
+        49.332,
+        48.711,
+        53.81,
+        55.137,
+        54.929,
+        55.432,
+        54.083,
+        51.876,
+        52.144,
+        52.608,
+        53.032,
+        53.988,
+        54.308,
+        51.962,
+        51.957,
+        53.129,
+        53.62,
+        53.798,
+        53.352,
+        52.542,
+        54.7,
+        54.37,
+        55.999,
+        51.869,
+        54.649
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 AND s.source_id=@sourceId ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 95,
+              "parent": 89,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 101,
+              "parent": 89,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 110,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 169,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "albums-deep-page",
+      "layer": "service",
+      "firstMs": 70.44,
+      "p50Ms": 67.69,
+      "p95Ms": 72.518,
+      "maxMs": 74.721,
+      "samplesMs": [
+        74.721,
+        69.053,
+        68.895,
+        66.233,
+        62.405,
+        64.039,
+        69.664,
+        72.518,
+        70.165,
+        67.972,
+        68.899,
+        67.9,
+        68.431,
+        67.773,
+        67.69,
+        65.315,
+        68.463,
+        68.701,
+        66.85,
+        67.059,
+        65.692,
+        66.523,
+        69.108,
+        65.436,
+        65.707,
+        65.443,
+        63.957,
+        70.793,
+        66.226,
+        63.191
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 167,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "album-tracks",
+      "layer": "service",
+      "firstMs": 66.988,
+      "p50Ms": 65.502,
+      "p95Ms": 73.004,
+      "maxMs": 73.329,
+      "samplesMs": [
+        72.876,
+        70.582,
+        66.217,
+        64.158,
+        65.315,
+        65.322,
+        65.195,
+        68.443,
+        66.51,
+        65.502,
+        66.589,
+        64.622,
+        73.004,
+        73.329,
+        68.402,
+        61.846,
+        61.839,
+        68.01,
+        67.748,
+        62.764,
+        65.345,
+        65.123,
+        66.532,
+        62.154,
+        60.372,
+        66.128,
+        63.201,
+        60.17,
+        66.715,
+        72.068
+      ],
+      "queries": [
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND e.id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 19,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 29,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 36,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 46,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 64,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 82,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 88,
+              "parent": 82,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 82,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 103,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT CASE WHEN baseline.id IS NULL THEN 'not_loaded'\n        WHEN baseline.tracks_sha256=detail.tracks_sha256 THEN 'unchanged' ELSE 'review_required' END AS trackState\n        FROM catalog_album_state c LEFT JOIN catalog_observation baseline ON baseline.id=c.tracks_observation_id\n        LEFT JOIN catalog_observation detail ON detail.id=c.detail_observation_id WHERE c.album_id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 7,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+            },
+            {
+              "id": 14,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH baseline USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 22,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH detail USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='track' AND a.id=? ORDER BY b.position LIMIT ? OFFSET ?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 87,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 93,
+              "parent": 87,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 99,
+              "parent": 87,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 108,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 165,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT track_label AS displayNumber,disc_label AS discLabel FROM track WHERE id=?",
+          "calls": 10,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 11,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 11,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "candidates-first",
+      "layer": "service",
+      "firstMs": 57.817,
+      "p50Ms": 54.569,
+      "p95Ms": 58.089,
+      "maxMs": 58.885,
+      "samplesMs": [
+        53.882,
+        55.096,
+        53.773,
+        55.267,
+        54.575,
+        55.919,
+        54.954,
+        53.701,
+        54.09,
+        52.772,
+        56.484,
+        56.74,
+        54.569,
+        54.797,
+        51.134,
+        50.952,
+        51.863,
+        55.083,
+        54.752,
+        51.833,
+        51.674,
+        55.291,
+        56.395,
+        56.765,
+        53.097,
+        50.517,
+        51.334,
+        51.237,
+        58.885,
+        58.089
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 14,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 40,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 47,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 57,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 66,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 75,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 98,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 92,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 AND s.id<>@excludeSource AND NOT EXISTS (SELECT 1 FROM user_source_link l WHERE l.user_id=@userId AND l.source_entity_id=s.id) AND NOT EXISTS (SELECT 1 FROM catalog_detached_link l WHERE l.user_id=@userId AND l.source_entity_id=s.id) ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 95,
+              "parent": 89,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 101,
+              "parent": 89,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 115,
+              "parent": 111,
+              "notused": 39,
+              "detail": "SEARCH l USING COVERING INDEX sqlite_autoindex_user_source_link_1 (user_id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 127,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 131,
+              "parent": 127,
+              "notused": 39,
+              "detail": "SEARCH l USING COVERING INDEX sqlite_autoindex_catalog_detached_link_1 (user_id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 142,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 201,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id FROM library_item WHERE user_id=@userId AND entity_id=@entityId UNION ALL\n      SELECT id FROM catalog_detached_item WHERE user_id=@userId AND entity_id=@entityId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 1,
+              "parent": 0,
+              "notused": 0,
+              "detail": "COMPOUND QUERY"
+            },
+            {
+              "id": 2,
+              "parent": 1,
+              "notused": 0,
+              "detail": "LEFT-MOST SUBQUERY"
+            },
+            {
+              "id": 5,
+              "parent": 2,
+              "notused": 39,
+              "detail": "SEARCH library_item USING INDEX sqlite_autoindex_library_item_2 (user_id=? AND entity_id=?)"
+            },
+            {
+              "id": 16,
+              "parent": 1,
+              "notused": 0,
+              "detail": "UNION ALL"
+            },
+            {
+              "id": 19,
+              "parent": 16,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_3 (user_id=? AND entity_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "candidates-no-match",
+      "layer": "service",
+      "firstMs": 29.827,
+      "p50Ms": 24.762,
+      "p95Ms": 26.185,
+      "maxMs": 26.627,
+      "samplesMs": [
+        24.883,
+        24.308,
+        24.773,
+        24.613,
+        24.467,
+        24.721,
+        26.185,
+        24.999,
+        24.436,
+        24.33,
+        24.838,
+        24.425,
+        24.376,
+        24.762,
+        25.424,
+        25.68,
+        25.449,
+        25.405,
+        24.739,
+        25.076,
+        24.077,
+        24.553,
+        25.105,
+        24.328,
+        25.308,
+        24.28,
+        23.953,
+        25.071,
+        26.627,
+        24.851
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 2,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 40,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 47,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 57,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 66,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 75,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 92,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 98,
+              "parent": 92,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 92,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 113,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND c.album_id IS NOT NULL AND r.source_entity_id IS NULL AND e.lifecycle='active'\n  AND s.availability IN ('unverified','available') AND (e.kind='album' OR b.position IS NOT NULL) AND e.kind='album' AND instr(normalize_search(a.title),@q)>0 AND s.id<>@excludeSource AND NOT EXISTS (SELECT 1 FROM user_source_link l WHERE l.user_id=@userId AND l.source_entity_id=s.id) AND NOT EXISTS (SELECT 1 FROM catalog_detached_link l WHERE l.user_id=@userId AND l.source_entity_id=s.id) ORDER BY normalize_search(a.title),s.source_id,s.external_key,e.id LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 25,
+              "parent": 0,
+              "notused": 216,
+              "detail": "SCAN e"
+            },
+            {
+              "id": 31,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 51,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 60,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 95,
+              "parent": 89,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 101,
+              "parent": 89,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 111,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 115,
+              "parent": 111,
+              "notused": 39,
+              "detail": "SEARCH l USING COVERING INDEX sqlite_autoindex_user_source_link_1 (user_id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 127,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 131,
+              "parent": 127,
+              "notused": 39,
+              "detail": "SEARCH l USING COVERING INDEX sqlite_autoindex_catalog_detached_link_1 (user_id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 142,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 201,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-first",
+      "layer": "service",
+      "firstMs": 2.904,
+      "p50Ms": 1.518,
+      "p95Ms": 1.905,
+      "maxMs": 2.118,
+      "samplesMs": [
+        1.382,
+        1.375,
+        1.328,
+        1.327,
+        1.352,
+        2.118,
+        1.55,
+        1.586,
+        1.688,
+        1.631,
+        1.362,
+        1.905,
+        1.728,
+        1.556,
+        1.518,
+        1.689,
+        1.519,
+        1.478,
+        1.569,
+        1.542,
+        1.382,
+        1.418,
+        1.316,
+        1.503,
+        1.35,
+        1.482,
+        1.415,
+        1.685,
+        1.521,
+        1.602
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track')) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 23,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 53,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 56,
+              "parent": 53,
+              "notused": 54,
+              "detail": "SEARCH catalog_detached_item USING COVERING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-no-match",
+      "layer": "service",
+      "firstMs": 21.795,
+      "p50Ms": 16.868,
+      "p95Ms": 18.474,
+      "maxMs": 19.122,
+      "samplesMs": [
+        17.065,
+        16.576,
+        16.553,
+        16.932,
+        16.03,
+        17.916,
+        18.474,
+        19.122,
+        17.78,
+        16.998,
+        16.403,
+        16.424,
+        17.98,
+        18.335,
+        17.395,
+        16.566,
+        16.392,
+        16.121,
+        16.868,
+        18.155,
+        17.613,
+        16.569,
+        17.266,
+        16.631,
+        17.012,
+        16.486,
+        16.786,
+        16.376,
+        16.762,
+        17.065
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND (instr(normalize_search(coalesce(li.title_override,'') || ' ' || li.note || ' ' || coalesce(\n        (SELECT title FROM track WHERE id=li.entity_id),(SELECT title FROM album WHERE id=li.entity_id),'')),@q)>0\n        OR EXISTS (SELECT 1 FROM user_source_link l JOIN source_entity s ON s.id=l.source_entity_id JOIN album a ON a.id=s.entity_id\n          WHERE l.user_id=@userId AND l.library_item_id=li.id AND instr(normalize_search(a.title),@q)>0))) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND instr(normalize_search(coalesce(title_override,CASE kind WHEN 'album' THEN '원본 미연결 앨범' ELSE '원본 미연결 트랙' END) || ' ' || note),@q)>0\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            },
+            {
+              "id": 48,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 53,
+              "parent": 48,
+              "notused": 39,
+              "detail": "SEARCH album USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 71,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 81,
+              "parent": 71,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 109,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 139,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-private-note",
+      "layer": "service",
+      "firstMs": 17.502,
+      "p50Ms": 17.675,
+      "p95Ms": 18.748,
+      "maxMs": 19.146,
+      "samplesMs": [
+        17.316,
+        17.562,
+        18.585,
+        17.122,
+        16.893,
+        18.238,
+        17.675,
+        18.256,
+        18.194,
+        18.492,
+        18.329,
+        17.87,
+        18.222,
+        18.006,
+        18.347,
+        18.748,
+        18.648,
+        17.485,
+        18.444,
+        17.98,
+        19.146,
+        17.207,
+        16.981,
+        16.98,
+        17.129,
+        17.142,
+        16.981,
+        17.272,
+        16.753,
+        17.201
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND (instr(normalize_search(coalesce(li.title_override,'') || ' ' || li.note || ' ' || coalesce(\n        (SELECT title FROM track WHERE id=li.entity_id),(SELECT title FROM album WHERE id=li.entity_id),'')),@q)>0\n        OR EXISTS (SELECT 1 FROM user_source_link l JOIN source_entity s ON s.id=l.source_entity_id JOIN album a ON a.id=s.entity_id\n          WHERE l.user_id=@userId AND l.library_item_id=li.id AND instr(normalize_search(a.title),@q)>0))) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND instr(normalize_search(coalesce(title_override,CASE kind WHEN 'album' THEN '원본 미연결 앨범' ELSE '원본 미연결 트랙' END) || ' ' || note),@q)>0\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            },
+            {
+              "id": 48,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 53,
+              "parent": 48,
+              "notused": 39,
+              "detail": "SEARCH album USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 71,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 81,
+              "parent": 71,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 109,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 139,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-short",
+      "layer": "service",
+      "firstMs": 2.843,
+      "p50Ms": 2.069,
+      "p95Ms": 2.459,
+      "maxMs": 2.542,
+      "samplesMs": [
+        2.542,
+        2.308,
+        2.102,
+        2.108,
+        2.095,
+        2.087,
+        2.031,
+        2.032,
+        2.006,
+        1.987,
+        1.999,
+        1.997,
+        2.041,
+        2.229,
+        2.147,
+        2.019,
+        2.052,
+        2.009,
+        2.001,
+        2.129,
+        2.091,
+        2.072,
+        2.016,
+        2.043,
+        1.974,
+        2.459,
+        2.158,
+        2.069,
+        2.091,
+        2.1
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND (instr(normalize_search(coalesce(li.title_override,'') || ' ' || li.note || ' ' || coalesce(\n        (SELECT title FROM track WHERE id=li.entity_id),(SELECT title FROM album WHERE id=li.entity_id),'')),@q)>0\n        OR EXISTS (SELECT 1 FROM user_source_link l JOIN source_entity s ON s.id=l.source_entity_id JOIN album a ON a.id=s.entity_id\n          WHERE l.user_id=@userId AND l.library_item_id=li.id AND instr(normalize_search(a.title),@q)>0))) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND instr(normalize_search(coalesce(title_override,CASE kind WHEN 'album' THEN '원본 미연결 앨범' ELSE '원본 미연결 트랙' END) || ' ' || note),@q)>0\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            },
+            {
+              "id": 48,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 53,
+              "parent": 48,
+              "notused": 39,
+              "detail": "SEARCH album USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 71,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 81,
+              "parent": 71,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 109,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 139,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-source-title",
+      "layer": "service",
+      "firstMs": 18.428,
+      "p50Ms": 17.198,
+      "p95Ms": 18.445,
+      "maxMs": 18.791,
+      "samplesMs": [
+        17.062,
+        17.198,
+        16.926,
+        18.445,
+        16.988,
+        17.44,
+        17.127,
+        17.37,
+        17.641,
+        18.309,
+        17.227,
+        17.329,
+        17.573,
+        16.82,
+        18.007,
+        16.75,
+        17.5,
+        17.109,
+        17.339,
+        18.791,
+        17.593,
+        16.824,
+        16.902,
+        16.69,
+        16.729,
+        16.333,
+        17.838,
+        17.802,
+        17.012,
+        16.47
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND (instr(normalize_search(coalesce(li.title_override,'') || ' ' || li.note || ' ' || coalesce(\n        (SELECT title FROM track WHERE id=li.entity_id),(SELECT title FROM album WHERE id=li.entity_id),'')),@q)>0\n        OR EXISTS (SELECT 1 FROM user_source_link l JOIN source_entity s ON s.id=l.source_entity_id JOIN album a ON a.id=s.entity_id\n          WHERE l.user_id=@userId AND l.library_item_id=li.id AND instr(normalize_search(a.title),@q)>0))) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND instr(normalize_search(coalesce(title_override,CASE kind WHEN 'album' THEN '원본 미연결 앨범' ELSE '원본 미연결 트랙' END) || ' ' || note),@q)>0\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            },
+            {
+              "id": 48,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 53,
+              "parent": 48,
+              "notused": 39,
+              "detail": "SEARCH album USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 71,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 81,
+              "parent": 71,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 109,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 139,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 2,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-unresolved",
+      "layer": "service",
+      "firstMs": 16.765,
+      "p50Ms": 17.495,
+      "p95Ms": 19.02,
+      "maxMs": 19.047,
+      "samplesMs": [
+        16.3,
+        16.743,
+        17.062,
+        16.605,
+        16.816,
+        17.191,
+        17.676,
+        18.673,
+        19.02,
+        18.584,
+        17.248,
+        18.704,
+        19.047,
+        18.359,
+        17.042,
+        16.912,
+        16.993,
+        16.482,
+        17.873,
+        18.889,
+        17.675,
+        16.507,
+        18.347,
+        18.261,
+        18.495,
+        18.563,
+        16.771,
+        17.257,
+        17.782,
+        17.495
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND (instr(normalize_search(coalesce(li.title_override,'') || ' ' || li.note || ' ' || coalesce(\n        (SELECT title FROM track WHERE id=li.entity_id),(SELECT title FROM album WHERE id=li.entity_id),'')),@q)>0\n        OR EXISTS (SELECT 1 FROM user_source_link l JOIN source_entity s ON s.id=l.source_entity_id JOIN album a ON a.id=s.entity_id\n          WHERE l.user_id=@userId AND l.library_item_id=li.id AND instr(normalize_search(a.title),@q)>0))) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND instr(normalize_search(coalesce(title_override,CASE kind WHEN 'album' THEN '원본 미연결 앨범' ELSE '원본 미연결 트랙' END) || ' ' || note),@q)>0\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 32,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 37,
+              "parent": 32,
+              "notused": 39,
+              "detail": "SEARCH track USING INDEX sqlite_autoindex_track_1 (id=?)"
+            },
+            {
+              "id": 48,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 2"
+            },
+            {
+              "id": 53,
+              "parent": 48,
+              "notused": 39,
+              "detail": "SEARCH album USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 71,
+              "parent": 11,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 3"
+            },
+            {
+              "id": 81,
+              "parent": 71,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 89,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 94,
+              "parent": 71,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 109,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 139,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 143,
+              "parent": 139,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT reference_json AS reference,asserted_at AS assertedAt FROM catalog_detached_link\n    WHERE user_id=? AND library_item_id=? ORDER BY asserted_at,source_entity_id",
+          "calls": 12,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH catalog_detached_link USING INDEX catalog_detached_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 19,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-filter-page",
+      "layer": "service",
+      "firstMs": 15.165,
+      "p50Ms": 12.272,
+      "p95Ms": 13.322,
+      "maxMs": 14.534,
+      "samplesMs": [
+        11.907,
+        11.894,
+        11.663,
+        11.307,
+        11.296,
+        11.693,
+        11.301,
+        11.488,
+        11.348,
+        11.276,
+        14.534,
+        11.44,
+        12.789,
+        13.094,
+        12.395,
+        12.271,
+        12.848,
+        12.638,
+        13.036,
+        12.175,
+        13.322,
+        12.976,
+        12.284,
+        12.699,
+        12.77,
+        12.272,
+        12.968,
+        12.151,
+        12.452,
+        12.75
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND e.kind=@kind AND li.favorite=@favorite) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId AND kind=@kind AND favorite=@favorite\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 20,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 29,
+              "parent": 11,
+              "notused": 45,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 44,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 48,
+              "parent": 44,
+              "notused": 62,
+              "detail": "SEARCH catalog_detached_item USING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track') AND li.id=@itemId",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH li USING INDEX sqlite_autoindex_library_item_3 (id=? AND user_id=?)"
+            },
+            {
+              "id": 13,
+              "parent": 0,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT e.id,e.kind,a.id AS albumId,coalesce(t.title,a.title) AS title,e.lifecycle,\n  s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,s.availability AS sourceAvailability,\n  (r.source_entity_id IS NOT NULL) AS removed,b.position,t.duration_ms AS durationMs\n  FROM entity e LEFT JOIN track t ON t.id=e.id JOIN album a ON a.id=coalesce(t.album_id,e.id)\n  LEFT JOIN catalog_album_state c ON c.album_id=a.id LEFT JOIN catalog_removal r ON r.album_id=a.id\n  JOIN source_entity s ON s.id=coalesce(c.source_entity_id,r.source_entity_id)\n  LEFT JOIN catalog_track_binding b ON b.track_id=t.id AND b.observation_id=c.tracks_observation_id\n  WHERE e.kind IN ('album','track') AND (e.kind='album' OR r.source_entity_id IS NOT NULL OR EXISTS (\n    SELECT 1 FROM catalog_track_origin origin JOIN catalog_observation o ON o.id=origin.observation_id\n    WHERE origin.track_id=t.id AND o.source_entity_id=s.id)) AND e.id=?",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 57,
+              "detail": "SEARCH e USING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 38,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?) LEFT-JOIN"
+            },
+            {
+              "id": 45,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+            },
+            {
+              "id": 55,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 62,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH r USING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?) LEFT-JOIN"
+            },
+            {
+              "id": 69,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 83,
+              "parent": 0,
+              "notused": 0,
+              "detail": "CORRELATED SCALAR SUBQUERY 1"
+            },
+            {
+              "id": 89,
+              "parent": 83,
+              "notused": 47,
+              "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+            },
+            {
+              "id": 95,
+              "parent": 83,
+              "notused": 44,
+              "detail": "SEARCH o USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+            },
+            {
+              "id": 104,
+              "parent": 0,
+              "notused": 47,
+              "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?) LEFT-JOIN"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT s.entity_id AS entityId,l.asserted_at AS assertedAt FROM user_source_link l\n      JOIN source_entity s ON s.id=l.source_entity_id WHERE l.user_id=? AND l.library_item_id=? ORDER BY l.asserted_at,l.source_entity_id",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 6,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH l USING INDEX user_source_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 15,
+              "parent": 0,
+              "notused": 46,
+              "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+            },
+            {
+              "id": 26,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "library-deep-page",
+      "layer": "service",
+      "firstMs": 11.168,
+      "p50Ms": 8.523,
+      "p95Ms": 9.038,
+      "maxMs": 14.976,
+      "samplesMs": [
+        8.669,
+        8.38,
+        8.408,
+        8.369,
+        8.761,
+        8.506,
+        8.42,
+        8.668,
+        8.728,
+        8.419,
+        8.667,
+        8.654,
+        8.865,
+        8.452,
+        14.976,
+        8.528,
+        8.393,
+        8.542,
+        8.523,
+        8.719,
+        8.428,
+        8.278,
+        8.372,
+        8.996,
+        9.038,
+        8.894,
+        8.85,
+        8.508,
+        8.405,
+        8.321
+      ],
+      "queries": [
+        {
+          "sql": "SELECT id,createdAt FROM (SELECT li.id,li.entity_id AS entityId,li.title_override AS titleOverride,li.note,li.favorite,li.version,\n  li.created_at AS createdAt,li.updated_at AS updatedAt FROM library_item li JOIN entity e ON e.id=li.entity_id\n  WHERE li.user_id=@userId AND e.kind IN ('album','track')) UNION ALL\n        SELECT id,created_at AS createdAt FROM catalog_detached_item WHERE user_id=@userId\n        ORDER BY createdAt DESC,id DESC LIMIT @limit OFFSET @offset",
+          "calls": 1,
+          "plan": [
+            {
+              "id": 9,
+              "parent": 0,
+              "notused": 0,
+              "detail": "MERGE (UNION ALL)"
+            },
+            {
+              "id": 11,
+              "parent": 9,
+              "notused": 0,
+              "detail": "LEFT"
+            },
+            {
+              "id": 16,
+              "parent": 11,
+              "notused": 62,
+              "detail": "SEARCH li USING INDEX library_item_owner_idx (user_id=?)"
+            },
+            {
+              "id": 23,
+              "parent": 11,
+              "notused": 55,
+              "detail": "SEARCH e USING COVERING INDEX sqlite_autoindex_entity_2 (id=? AND kind=?)"
+            },
+            {
+              "id": 53,
+              "parent": 9,
+              "notused": 0,
+              "detail": "RIGHT"
+            },
+            {
+              "id": 56,
+              "parent": 53,
+              "notused": 54,
+              "detail": "SEARCH catalog_detached_item USING COVERING INDEX catalog_detached_owner_idx (user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id,reference_json AS reference,title_override AS titleOverride,note,favorite,version,\n    created_at AS createdAt,updated_at AS updatedAt FROM catalog_detached_item WHERE user_id=? AND id=?",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH catalog_detached_item USING INDEX sqlite_autoindex_catalog_detached_item_2 (id=? AND user_id=?)"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT reference_json AS reference,asserted_at AS assertedAt FROM catalog_detached_link\n    WHERE user_id=? AND library_item_id=? ORDER BY asserted_at,source_entity_id",
+          "calls": 100,
+          "plan": [
+            {
+              "id": 4,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH catalog_detached_link USING INDEX catalog_detached_link_item_idx (user_id=? AND library_item_id=?)"
+            },
+            {
+              "id": 19,
+              "parent": 0,
+              "notused": 0,
+              "detail": "USE TEMP B-TREE FOR ORDER BY"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/api/catalog/albums?q=absent-title",
+      "layer": "authenticated-inject",
+      "firstMs": 31.143,
+      "p50Ms": 24.273,
+      "p95Ms": 29.993,
+      "maxMs": 34.666,
+      "samplesMs": [
+        26.759,
+        34.666,
+        24.932,
+        25.238,
+        24.357,
+        23.291,
+        23.039,
+        22.757,
+        22.894,
+        24.621,
+        29.993,
+        26.627,
+        25.298,
+        23.621,
+        26.011,
+        24.563,
+        23.573,
+        24.175,
+        23.792,
+        24.273,
+        23.843,
+        23.671,
+        23.147,
+        23.477,
+        23.978,
+        23.409,
+        24.581,
+        26.047,
+        26.266,
+        26.762
+      ],
+      "queries": []
+    },
+    {
+      "name": "/api/catalog/albums/:albumId",
+      "layer": "authenticated-inject",
+      "firstMs": 74.944,
+      "p50Ms": 64.658,
+      "p95Ms": 72.693,
+      "maxMs": 73.378,
+      "samplesMs": [
+        73.378,
+        70.903,
+        70.333,
+        69.677,
+        70.89,
+        68.908,
+        68.432,
+        69.145,
+        70.048,
+        70.323,
+        65.658,
+        64.658,
+        60.681,
+        68.47,
+        62.225,
+        63.626,
+        60.085,
+        60.684,
+        59.514,
+        59.213,
+        60.741,
+        63.997,
+        60.323,
+        59.909,
+        59.596,
+        62.335,
+        62.08,
+        72.685,
+        72.693,
+        71.008
+      ],
+      "queries": []
+    },
+    {
+      "name": "/api/library/catalog?q=absent-title",
+      "layer": "authenticated-inject",
+      "firstMs": 20.247,
+      "p50Ms": 16.683,
+      "p95Ms": 18.204,
+      "maxMs": 20.279,
+      "samplesMs": [
+        16.347,
+        16.466,
+        16.387,
+        20.279,
+        16.93,
+        16.979,
+        18.204,
+        16.825,
+        16.351,
+        16.877,
+        17.537,
+        17.381,
+        17.241,
+        16.683,
+        16.666,
+        16.336,
+        16.717,
+        16.868,
+        16.431,
+        16.352,
+        16.407,
+        16.8,
+        16.198,
+        16.359,
+        16.73,
+        17.015,
+        16.641,
+        16.479,
+        16.742,
+        16.535
+      ],
+      "queries": []
+    }
+  ]
+}

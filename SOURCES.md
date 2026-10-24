@@ -48,6 +48,78 @@
 
 **다음 판단.** 수집 허용 범위 확인 후 검색/상세/누락/동일 번호/유니코드 사례를 Adapter 계약 테스트로 고정합니다. 스트리밍은 메타데이터 연동과 별도 승인 상태로 유지합니다.
 
+## 단계 1 구현 검증 결과
+
+**2026-10-24 저장 경계 보충:** 캐시/표시와 별도의 카탈로그 보관 정책을 정의했습니다. 두 소스의 보관 허용은 unknown이며, live 저장소도 준비 전에는 거절합니다. 선택한 상세 재검사·실제 세션·공용/개인 원자적 저장은 합성 자료로만 검증했고 외부 요청·허가 근거 변경·운영 적재는 없습니다. [저장 계약](docs/SOURCE_SAVE.md)
+
+**2026-10-24 상세 화면 보충:** 검색 결과의 명시적 선택과 React 상세/수록곡 창을 연결했습니다. 반복 번호·미확인 길이·취득 시각·캐시/실패·세션/취소/만료를 데스크톱/모바일에서 확인했습니다. 성공 응답은 합성 자료이며 제품 정책 비활성을 실제 API로 확인했습니다. 실제 사이트 요청이나 정책 변경, 카탈로그 적재는 없습니다. [화면 계약](docs/SOURCE_ALBUM_UI.md)
+
+**2026-10-24 상세 API 보충:** 소스 앨범 상세 서비스와 인증된 `POST /api/source-album`을 연결했습니다. 서비스 18개·API 15개를 추가해 전체 Node 301개와 기존 브라우저 13개 시나리오를 통과했습니다. 상세 성공·캐시·수록곡은 합성 자료만 사용했고 실제 세션·최종 정책/제거/만료·취소와 검색/상세 공통 제한을 확인했습니다. 실제 사이트 요청이나 허가 근거 변경은 없으며 양 소스의 policy_disabled·KHInsider 상세 파서 미지원은 유지합니다. [상세 계약](docs/SOURCE_ALBUM.md)
+
+**2026-10-24 검색 화면 보충:** React에서 외부 소스를 명시적으로 선택하고 정책 비활성·정상 0건·부분 실패·캐시 자료와 수동 재시도를 구분합니다. 실제 세션의 데스크톱/모바일 검증에 성공/캐시 응답은 합성 자료만 사용했고 제품 정책을 변경하지 않았습니다. 이번 변경에서 외부 사이트 요청과 새로운 허가/가용성 조사는 없습니다. [화면 계약](docs/SEARCH_UI.md)
+
+**2026-10-24 검색 API 보충:** 실제 쿠키 세션을 검증하는 `POST /api/search`를 연결했습니다. 인증/요청 제한·대기/취소·최종 세션과 메타데이터 검사에 API 21개 및 서비스 추가 3개 테스트를 적용했습니다. 연결 종료는 로컬 전용 임시 서버에서 검증했으며 외부 사이트에는 요청하지 않았습니다. 기존 허가 근거와 policy_disabled는 그대로이고 실제 수집/표시 허용이나 실사이트 성공을 의미하지 않습니다. [API 계약](docs/SEARCH_API.md)
+
+**2026-10-24 통합 검색 보충:** 로컬 카탈로그와 소스 Adapter의 결과 구분·시간 예산·취소·부분 실패·정책/만료/제거 재검사를 28개 오프라인 테스트로 검증했습니다. 제품은 합성 카탈로그를 live 검색에 섞지 않으며 양 소스의 `policy_disabled`를 유지합니다. 실제 요청이나 정책/허가 근거 변경은 없습니다. 당시 API·화면은 미연결이었으며 후속 API 검증은 위 항목을 참고합니다. [통합 검색 계약](docs/SEARCH_SERVICE.md)
+
+**2026-10-24 Adapter/캐시 보충:** 검색/상세 Adapter·SQLite 정규화 메타데이터 캐시·정책/버전/TTL·실패 대체·요청 병합/취소·제거 연동을 29개 합성 테스트로 검증했습니다. 제품 정책·허가 근거를 바꾸거나 실사이트에 요청하지 않았습니다. 후속 검색 API·React 검색 화면을 연결했으며 실제 자료 적재는 아직 미연결이고 KHInsider 상세 미지원도 유지합니다. [계약과 검증 범위](docs/SOURCE_ADAPTERS.md)
+
+**2026-10-24 구현 보충:** 공통 전송 계층의 고정 소스 요청·정책 gate·DNS/IP/redirect 검사·취소/timeout·크기/간격/429 제한을 35개 오프라인 테스트로 검증했습니다. 이 작업에서는 KHInsider·Zophar에 실제 요청하지 않았으며 아래 2026-10-18 관찰이나 unknown 정책을 갱신하지 않았습니다. 제품은 DNS 전에 `policy_disabled`를 반환합니다. robots/path/quota 검토와 허용된 실사이트 검증은 남아 있습니다. 후속 Adapter·캐시 구현 범위는 위 보충 항목을 참고합니다. [전송 계약](docs/SOURCE_TRANSPORT.md)
+
+2026-10-18 추가 검증. 기존 임시 응답 4건(KHInsider 검색·차단된 상세, Zophar 영문 검색·SNES 상세)을 재사용하고, Zophar에만 검색 2건·상세 2건을 추가 요청했습니다. KHInsider는 차단 이후 다른 상세 URL·UA·미러로 재시도하지 않았습니다. 이 절의 성공은 **보관된 응답을 파싱한 결과**이며 제품 수집 허가를 의미하지 않습니다.
+
+### 기능별 판정
+
+| 기능 | KHInsider 기술 상태 | Zophar 기술 상태 | 정책/제품 상태 |
+| --- | --- | --- | --- |
+| 공식 API | 확인 못함 | 확인 못함 | 존재하지 않는다고 단정하지 않음 |
+| 앨범 검색 HTML | 1종, 202건 파싱 | 3종, 각각 4·0·0건 파싱 | 두 소스 모두 자동 검색 허가 `unknown`, 제품 `policy_disabled` |
+| 앨범 상세 HTML | 기존 403, 상세 파서 `unsupported` | 3종, 92·75·71행 파싱 | 상세 수집 허가 `unknown`, 제품 `policy_disabled` |
+| 메타데이터 캐시 | 10/24 오프라인 구현 | 10/24 오프라인 구현 | 보관 기간·재사용 허가 `unknown`, 제품 캐시 비활성 |
+| 메타데이터 표시 | DTO 출력만 검증 | DTO 출력만 검증 | 서비스 재표시 범위 `unknown`; 조사 결과 출력을 서비스 허가로 취급하지 않음 |
+| 표지 이미지 표시 | 미검증 | 미검증 | `unknown`, 이미지 다운로드·자동 임베드 안 함 |
+| 직접 오디오 | 미검증 | 기존 HEAD 1건만 확인 | 외부 재생 허가 `unknown`, 재생 기능 없음 |
+| iframe/embed | 검색 CSP가 프레이밍 차단 | 공식 embed와 브라우저 동작 미확인 | 외부 임베드 허가 `unknown` |
+| 수동 페이지 URL 참조 | 고정 origin·앨범 경로 검증 구현 | 고정 origin·앨범 경로 검증 구현 | 네트워크 없는 URL 정규화만 구현. 계정별 북마크 저장은 다음 단계 |
+
+정책 근거는 KHInsider [robots](https://downloads.khinsider.com/robots.txt)·[FAQ](https://downloads.khinsider.com/faq)와 Zophar [Legal Stuff](https://www.zophar.net/legal.html)·[Privacy Policy](https://www.zophar.net/privacy-policy.html)를 재확인했습니다. 공개 문서에서 자동 검색·상세 수집·캐시·재표시·오디오 핫링크의 명시적 허가나 공식 요청 quota를 찾지 못했습니다. KHInsider robots의 `/unavailable` 제한과 Zophar robots의 홈페이지 리다이렉트는 앞선 직접 응답 기록을 사용했습니다. 정책 미확인을 허용이나 금지 확정으로 바꾸지 않았습니다. [운영자 문의 초안](docs/OPERATOR_INQUIRY.md)을 작성했으며 발송하지 않았습니다.
+
+### 표본과 재현 가능한 결과
+
+| 소스 / 표본 | HTTP | 파서 결과 | 검증 범위 |
+| --- | --- | --- | --- |
+| [KHInsider: chrono trigger 검색](https://downloads.khinsider.com/search?search=chrono+trigger) | 200 | 보고 202건 / 추출 202건 | 제목·분류·플랫폼·연도 라벨, 동일 제목의 다른 소스 키 |
+| [KHInsider: 상세](https://downloads.khinsider.com/game-soundtracks/album/chrono-trigger-2015) | 403 | `blocked` | 기존 차단 응답의 오류 분류만 확인 |
+| [Zophar: chrono trigger 검색](https://www.zophar.net/search?search=chrono+trigger) | 200 | 보고 4건 / 추출 4건 | 음악 섹션만 선택, 다른 카테고리 제외 |
+| [Zophar: クロノ 검색](https://www.zophar.net/search?search=%E3%82%AF%E3%83%AD%E3%83%8E) | 200 | 명시적 0건 | 일본어 요청 처리만 확인; 일본어 메타데이터 검색 품질을 보장하지 않음 |
+| [Zophar: 불일치 문자열 검색](https://www.zophar.net/search?search=loopshelf-no-match-20261018) | 200 | 명시적 0건 | `No search results found!` 표식 확인 |
+| [Zophar: SNES 상세](https://www.zophar.net/music/nintendo-snes-spc/chrono-trigger.html) | 200 | 92행, 반복 표시 번호 27개 | 일반·루프 버전 별도 행, 순서·길이 유지 |
+| [Zophar: PlayStation 상세](https://www.zophar.net/music/playstation-psf/chrono-trigger.html) | 200 | 75행 | SNES와 다른 소스 키; 리퍼/태거 필드 없음 |
+| [Zophar: DS 상세](https://www.zophar.net/music/nintendo-ds-2sf/chrono-trigger.html) | 200 | 71행 | 같은 게임의 다른 플랫폼 자료, 미제공 선택 필드 허용 |
+
+추가 요청 시각은 **23:34:17–23:34:29 KST**, User-Agent는 `LoopShelfResearch/0.1 (+https://github.com/luuvish/loop-shelf)`였습니다. `Origin: http://localhost:5173`을 넣었고 쿠키·Referer·인증 없이 HTTPS GET만 사용했습니다. 요청은 직렬로, 각 응답 후 최소 3초 간격, 연결 5초/전체 10초 제한, 본문 최대 5 MiB, redirect 자동 추적 없이 수행했습니다. 401/403/429 또는 전송 오류 시 중단하도록 했고 4건 모두 200이었습니다. 이 제한은 자체 조사 예산이며 사이트 공식 quota가 아닙니다.
+
+추가 4개 HTML 응답 모두 CORS 허용 헤더가 없었습니다. 서버 요청의 성공으로 브라우저 fetch 가능성을 주장하지 않습니다. 오디오 요청·다운로드·브라우저 재생 검증은 추가하지 않았습니다. 앞선 HEAD 결과의 한계도 그대로 유지합니다.
+
+[증거 JSON](docs/evidence/2026-10-18-source-feasibility.json)에 URL, 확인 시각과 시각의 근거, 요청 조건, 선택한 응답 헤더, 정상 본문의 SHA-256, 파서 버전, 행 개수와 경고를 보관했습니다. raw HTML·전체 곡 목록·표지·음원 URL은 버전 관리하지 않습니다. 합성 fixture와 로컬 검사 명령은 [README](README.md#개발-및-오프라인-검증)에 있습니다. 원문을 확보하는 기능이 없는 오프라인 도구이며, live-capture 표본 재검증에는 허용된 조사에서 별도로 얻은 응답이 필요합니다.
+
+### DTO와 파서에 반영한 결정
+
+- KHInsider 앨범 참조 키는 `/game-soundtracks/album/{slug}`의 slug, Zophar는 `/music/{system}/{slug}.html`의 system/slug입니다. 이는 현재 경로에서 얻은 출처 키이며 내부 UUID 또는 영구 불변 ID가 아닙니다.
+- KHInsider 분류와 연도는 `sourceCategory`, `sourceYearLabel`에 원문 의미로 보존합니다. 검색의 Arrangement 항목을 원작 OST로 자동 병합하지 않습니다.
+- Zophar 검색 라벨에는 플랫폼 괄호가 붙습니다. 애매하게 문자열을 잘라 게임명·플랫폼을 추정하지 않고 `source-display-label`로 저장하며 상세의 제목·Console 필드로 보완합니다.
+- Zophar 트랙 번호는 반복 가능하므로 `position`/`displayNumber`/문서 내 `snapshotLocator`를 구분합니다. 안정적인 트랙 원본 키는 확인하지 못해 null입니다. 행 순서나 음원 경로를 영구 식별자로 사용하지 않습니다.
+- `Release date`는 원문 주장으로 보관하고 canonical `releaseDate`는 null로 둡니다. `101` 같은 번호에서 디스크를 추론하지 않습니다. 누락/해석 불가 길이도 null로 보존합니다.
+- 페이지네이션 링크는 실제 검색 표본에서 발견하지 못했습니다. 다음 링크 추출과 호스트 검사는 합성 테스트로만 확인했습니다. 결과 상한은 `null`, 전 카탈로그 완전성은 미확인입니다. `reported-count-matches`는 현재 페이지 보고 개수와 추출 개수가 같다는 뜻에 한정합니다.
+- HTTP 403/401, 429, 404/410, 기타 오류, HTTP 200의 challenge를 각각 분류합니다. 필수 목록이 사라지면 `parse_changed`이며 0건으로 저장하지 않습니다. 현재 Zophar에서 음악 섹션도 전체 0건 표식도 없는 페이지는 보수적으로 `parse_changed` 처리합니다. 음악 외 결과만 있는 경우의 추가 표본이 필요합니다.
+- KHInsider의 0건 분기와 미확인 페이지네이션·누락 길이 처리는 합성 테스트만 통과했습니다. 해당 실사이트 응답이 검증되었다고 표시하지 않습니다.
+
+**검증:** Node 26.8.2에서 strict 타입 검사와 오프라인 테스트 **23개 통과**. 기존/추가 실제 응답 8건 중 7건 파싱 성공, 1건 KHInsider 상세는 예상한 `blocked` 반환. 실제 자료는 같은 게임 중심의 제한된 표본이므로 다른 게임·다중 디스크·서버별 마크업까지 일반화할 수 없습니다.
+
+**단계 1 판정: 부분 완료.** 기술적으로는 KHInsider 검색과 Zophar 검색/상세의 파싱 경로를 확인했습니다. 허가 근거, KHInsider 상세, 결과 상한/페이지 규칙, 더 다양한 표본은 미완료입니다. 제품 자동 수집은 양쪽 모두 비활성으로 두고, 다음에는 독립적인 SQLite 모델·사용자 라이브러리·수동 북마크 기반을 구현할 수 있습니다.
+
+**2026-10-22 로컬 저장 검증 추가:** 합성 파서 DTO의 Album/SourceEntity 반복 적재·관찰 기록·트랙 변경 보류를 구현했습니다. 실제 캡처는 적재 경계에서 거절하며 실사이트의 추가 요청이나 정책 재판단은 수행하지 않았습니다. 트랙 원본 키는 여전히 미확인입니다. [카탈로그 계약](docs/CATALOG.md)
+
 ## 3. Sitting on Clouds
 
 [홈페이지](https://www.sittingonclouds.net/)와 [앨범 표본](https://www.sittingonclouds.net/album/7779)에서 다국어 제목, 발매일, 아티스트, 분류, 플랫폼, 게임 연결을 확인했습니다. 앨범 ID 기반 URL은 메타데이터 참조에 유용합니다. 사이트의 검색 요청 형식, 페이지네이션, 상세 수록곡 완전성은 추가 확인 대상입니다.
@@ -127,3 +199,11 @@ ACAO = `Access-Control-Allow-Origin`. 응답은 지역·시점·요청 조건·C
 3. 검색 페이지네이션, 0건, 다국어, 다중 디스크, 변경·삭제·부분 메타데이터 등 추가 표본.
 4. 후속 플레이어 단계에서만 소스별 외부 재생 허가와 실제 HTTPS 오디오 GET·Range·브라우저 동작 검증.
 5. 한 소스가 실패하면 다른 소스와 저장된 개인 항목을 계속 이용할 수 있는지 검증.
+
+## 2026-10-24 보관 모델 검증 추가
+
+자료 종류 격리와 보관 기한·정책 철회 정리 모델을 임시 DB/합성 자료로 검증했습니다. SQL의 live-capture 행 검사는 스키마 시뮬레이션이며 실제 사이트 자료를 적재한 결과가 아닙니다. 이번 작업에서 외부 사이트를 호출하거나 허용 상태를 변경하지 않았습니다. 양 소스 제품 자동 수집/저장은 계속 비활성입니다. [모델과 남은 live 경계](docs/CATALOG_RETENTION.md)
+
+## 2026-10-25 개인 참조·저장 수명 확장
+
+개인 DTO/JSON v2에 자료 종류를 유지하고 내부 합성 저장에 승인된 원래 기한을 연결했습니다. live 참조 검증은 생성한 스키마 시뮬레이션/개인 파일이며 실제 수집이나 허가의 증거가 아닙니다. 이번에도 사이트 호출이나 정책 변경은 없고 양 소스 제품 수집/live 저장은 계속 비활성입니다. [현재 경계](docs/CATALOG_KINDS.md)
