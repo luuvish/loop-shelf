@@ -1,6 +1,6 @@
 # 카탈로그 자료 종류와 보관 수명
 
-기준일: **2026-10-24**. `0012_catalog_retention.sql`과 `src/catalog/retention.ts`는 자료 종류 격리·보관 만료·정책 철회의 저장 모델입니다. 실행 검증에는 합성 DTO, 임시 SQLite와 로컬 브라우저 계정만 사용했습니다. **제품 live 수집/저장과 저장 HTTP/UI는 여전히 비활성입니다.** 2026-10-25에 개인 DTO/JSON v2와 내부 저장의 수명 연결을 추가했습니다. 공용 탐색/live 활성화는 후속이며 [현재 종류 계약](CATALOG_KINDS.md)을 따릅니다.
+기준일: **2026-10-24**. `0012_catalog_retention.sql`과 `src/catalog/retention.ts`는 자료 종류 격리·보관 만료·정책 철회의 저장 모델입니다. 실행 검증에는 합성 DTO, 임시 SQLite와 로컬 브라우저 계정만 사용했습니다. **제품 live 수집/저장은 여전히 비활성입니다.** 저장 HTTP는 [별도 합성 검증](SOURCE_SAVE_API.md)으로 연결했으며 React 저장 UI는 후속입니다. 2026-10-25에 개인 DTO/JSON v2와 내부 저장의 수명 연결을 추가했습니다. 공용 탐색/live 활성화는 후속이며 [현재 종류 계약](CATALOG_KINDS.md)을 따릅니다.
 
 ## 자료 종류와 관찰 수명
 

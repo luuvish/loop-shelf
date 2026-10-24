@@ -3,12 +3,12 @@ import type Database from "better-sqlite3";
 import { withDatabase } from "../database/access.ts";
 import { abortable } from "../sources/transport/contracts.ts";
 
-interface SessionIdentity { userId: string; sessionId: string }
+export interface SessionIdentity { userId: string; sessionId: string }
 export type ReadSession = (request: FastifyRequest) => Promise<SessionIdentity | null>;
 export const SOURCE_READ_HTTP_LIMITS = Object.freeze({ deadlineMs: 12_000, maxActive: 16, perMinute: 30, bodyBytes: 4096 });
 
 interface ControlFailure { ok: false; code: "invalid_input" | "queue_full" | "cancelled" }
-interface Operation<Input, Result extends { ok: true } | ControlFailure> {
+interface ReadOperation<Input, Result extends { ok: true } | ControlFailure> {
   path: string;
   timeoutCode: string;
   parse(input: unknown): Input;
@@ -17,8 +17,17 @@ interface Operation<Input, Result extends { ok: true } | ControlFailure> {
   recheck(input: Input, result: Result): Result;
 }
 
-/** One admission/rate budget for search and source detail, separate from authentication and private CRUD. */
-export function createSourceReadRoutes(app: FastifyInstance, db: Database.Database, readSession: ReadSession) {
+interface WriteOperation<Input> {
+  path: string; timeoutCode: string; bodyBytes: number;
+  parse(input: unknown): Input;
+  /** Must authenticate and commit in the same DB turn. No asynchronous work after the commit. */
+  write(input: Input, request: FastifyRequest, signal: AbortSignal): Promise<{
+    status: number; value: unknown; authenticated?: SessionIdentity;
+  }>;
+}
+
+/** One admission/rate budget for search, source detail and source saves, separate from authentication and private CRUD. */
+export function createSourceRoutes(app: FastifyInstance, db: Database.Database, readSession: ReadSession) {
   const active = new Set<AbortController>();
   const limiter = app.rateLimit({ max: SOURCE_READ_HTTP_LIMITS.perMinute, timeWindow: "1 minute" });
   let closing = false;
@@ -26,8 +35,8 @@ export function createSourceReadRoutes(app: FastifyInstance, db: Database.Databa
     closing = true;
     for (const controller of active) controller.abort("closing");
   });
-  return function register<Input, Result extends { ok: true } | ControlFailure>(operation: Operation<Input, Result>) {
-    app.post(operation.path, { bodyLimit: SOURCE_READ_HTTP_LIMITS.bodyBytes, onRequest: limiter, config: { rateLimit: false },
+  function register<Input, Result extends { ok: true } | ControlFailure>(operation: ReadOperation<Input, Result> | WriteOperation<Input>) {
+    app.post(operation.path, { bodyLimit: "write" in operation ? operation.bodyBytes : SOURCE_READ_HTTP_LIMITS.bodyBytes, onRequest: limiter, config: { rateLimit: false },
     }, async (request, reply) => {
       // Host, exact Origin and no-store are enforced by the application's onRequest hook.
       reply.header("Vary", "Cookie, X-LoopShelf-Session");
@@ -59,6 +68,18 @@ export function createSourceReadRoutes(app: FastifyInstance, db: Database.Databa
           input = operation.parse(request.body);
         } catch { return reply.code(400).send({ code: "invalid_input" }); }
         check();
+        if ("write" in operation) {
+          const outcome = await abortable(Promise.resolve().then(() => { check(); return operation.write(input, request, signal); }), signal);
+          check();
+          if (outcome.status >= 200 && outcome.status < 300) {
+            if (outcome.authenticated?.userId !== initial.userId || outcome.authenticated.sessionId !== initial.sessionId)
+              throw new Error("Save result session changed");
+            reply.header("X-LoopShelf-User", initial.userId).header("X-LoopShelf-Session", initial.sessionId);
+          }
+          // The writer reauthenticated immediately before commit. A second asynchronous lookup here
+          // could discard a committed result; send immediately and let the UI recheck its current cookie.
+          return reply.code(outcome.status).send(outcome.value);
+        }
         const result = await abortable(Promise.resolve().then(() => { check(); return operation.read(input, signal); }), signal);
         // Reauthenticate after waiting. Do not keep the DB locked during source work or wait for network sends in this callback.
         await abortable(withDatabase(db, async () => {
@@ -84,5 +105,9 @@ export function createSourceReadRoutes(app: FastifyInstance, db: Database.Databa
         active.delete(controller); controller.abort("finished");
       }
     });
+  }
+  return {
+    read: <Input, Result extends { ok: true } | ControlFailure>(operation: ReadOperation<Input, Result>) => register(operation),
+    write: <Input>(operation: WriteOperation<Input>) => register(operation),
   };
 }

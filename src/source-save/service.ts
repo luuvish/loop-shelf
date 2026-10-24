@@ -2,15 +2,17 @@ import type Database from "better-sqlite3";
 import { withDatabase } from "../database/access.ts";
 import { CatalogError } from "../catalog/input.ts";
 import { CatalogLibraryError } from "../library/catalog.ts";
+import type { SourceSaveSelection, SourceSaveSuccess } from "../shared/source-save.ts";
+import { parseSourceAlbumInput } from "../source-album/input.ts";
 import type { SourceAlbumResult } from "../shared/source-album.ts";
 import { MetadataCache } from "../sources/adapters/cache.ts";
 import { abortable, type TransportClock } from "../sources/transport/contracts.ts";
 import type { SourceId, Provenance } from "../sources/types.ts";
-import { admitSourceAlbum, parseSourceSaveInput, requireCatalogPermission, SourceSaveError, type CatalogAdmissionPolicy } from "./admission.ts";
+import { admitSourceAlbum, parseSourceSaveInput, sourceDetailFingerprint, requireCatalogPermission, SourceSaveError, type CatalogAdmissionPolicy } from "./admission.ts";
 import { commitSyntheticSourceSave } from "./persistence.ts";
 
 export interface SourceSaveAuthentication {
-  api: { getSession(options: { headers: Headers }): Promise<{ user: { id: string }; session: { id: string } } | null> };
+  api: { getSession(options: { headers: Headers; query?: { disableCookieCache: true; disableRefresh: true } }): Promise<{ user: { id: string }; session: { id: string } } | null> };
 }
 interface Dependencies {
   sampleKind: Provenance["sampleKind"]; auth: SourceSaveAuthentication; clock: TransportClock;
@@ -18,13 +20,28 @@ interface Dependencies {
   detail: { getAlbum(input: unknown, signal?: AbortSignal): Promise<SourceAlbumResult>; recheck(input: unknown, value: SourceAlbumResult): SourceAlbumResult };
 }
 export const SOURCE_SAVE_LIMITS = Object.freeze({ deadlineMs: 12000, maxActive: 16, bodyBytes: 32768 });
-export type SourceSaveResult = ReturnType<typeof commitSyntheticSourceSave> | { ok: false; code: SourceSaveError["code"] };
+export type SourceSaveResult = (SourceSaveSuccess & { authenticated: { userId: string; sessionId: string } }) | { ok: false; code: SourceSaveError["code"] };
 
-/** Internal offline seam. There is no HTTP route, caller-supplied metadata, writer override, or userId input. */
+/** Internal offline seam. The product HTTP facade has fixed dependencies; no caller-supplied metadata, writer override, or userId input. */
 export function createSourceSaveService(db: Database.Database, deps: Dependencies) {
   let active = 0;
   const removed = new MetadataCache(db);
   return {
+    /** Synchronous advisory preflight. Caller owns withDatabase after cookie/detail recheck; never writes or fetches. */
+    selection(raw: unknown, value: SourceAlbumResult): SourceSaveSelection {
+      try {
+        const ref = parseSourceAlbumInput(raw), policy = structuredClone(deps.policy(ref.sourceId));
+        requireCatalogPermission(policy, ref.sourceId, deps.sampleKind, deps.clock.now());
+        if (deps.sampleKind !== "synthetic") throw new SourceSaveError("storage_unavailable");
+        if (removed.isRemoved(ref.sourceId, ref.externalKey)) throw new SourceSaveError("content_removed");
+        if (!value.ok || !value.result.ok) throw new SourceSaveError("refresh_required");
+        const expectedFingerprint = sourceDetailFingerprint(value.result);
+        const input = parseSourceSaveInput({ ...ref, expectedFingerprint });
+        const admitted = admitSourceAlbum(input, value, policy, deps.clock.now());
+        return { status: "available", expectedFingerprint, retainUntil: admitted.retainUntil,
+          validUntil: new Date(Math.min(Date.parse(value.result.delivery.freshUntil), Date.parse(admitted.retainUntil))).toISOString() };
+      } catch (error) { return { status: "unavailable", code: error instanceof SourceSaveError ? error.code : "invalid_response" }; }
+    },
     async save(raw: unknown, suppliedHeaders: Headers, signal?: AbortSignal): Promise<SourceSaveResult> {
       if (signal?.aborted) return { ok: false, code: "cancelled" };
       if (active >= SOURCE_SAVE_LIMITS.maxActive) return { ok: false, code: "queue_full" };
@@ -40,7 +57,7 @@ export function createSourceSaveService(db: Database.Database, deps: Dependencie
         // Snapshot all request input before the first await; later caller mutations cannot change a queued save.
         const input = parseSourceSaveInput(raw), ref = { sourceId: input.sourceId, externalKey: input.externalKey };
         const initial = await abortable(withDatabase(db, async () => {
-          check(); const session = await deps.auth.api.getSession({ headers: new Headers(headers) }); check();
+          check(); const session = await deps.auth.api.getSession({ headers: new Headers(headers), query: { disableCookieCache: true, disableRefresh: true } }); check();
           if (!session) throw new SourceSaveError("unauthorized");
           if (!headers.has("x-loopshelf-session")) throw new SourceSaveError("session_required");
           if (headers.get("x-loopshelf-session") !== session.session.id) throw new SourceSaveError("session_changed");
@@ -53,7 +70,7 @@ export function createSourceSaveService(db: Database.Database, deps: Dependencie
         }), controller.signal);
         const detail = await abortable(Promise.resolve().then(() => { check(); return deps.detail.getAlbum(ref, controller.signal); }), controller.signal);
         return await abortable(withDatabase(db, async () => {
-          check(); const session = await deps.auth.api.getSession({ headers: new Headers(headers) }); check();
+          check(); const session = await deps.auth.api.getSession({ headers: new Headers(headers), query: { disableCookieCache: true, disableRefresh: true } }); check();
           if (!session) throw new SourceSaveError("unauthorized");
           if (session.user.id !== initial.userId || session.session.id !== initial.sessionId) throw new SourceSaveError("session_changed");
           const recheck = () => {
@@ -73,9 +90,10 @@ export function createSourceSaveService(db: Database.Database, deps: Dependencie
             throw new SourceSaveError("source_error");
           }
           const admitted = admitSourceAlbum(input, current, policy, deps.clock.now());
-          return commitSyntheticSourceSave(db, initial.userId, input, admitted, () => {
+          const saved = commitSyntheticSourceSave(db, initial.userId, input, admitted, () => {
             const latest = recheck(); admitSourceAlbum(input, current, latest, deps.clock.now());
           });
+          return { ...saved, authenticated: { userId: initial.userId, sessionId: initial.sessionId } };
         }), controller.signal);
       } catch (error) {
         if (controller.signal.aborted) return { ok: false, code: controller.signal.reason === "timeout" ? "timeout" : "cancelled" };

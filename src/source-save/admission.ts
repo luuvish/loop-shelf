@@ -1,3 +1,4 @@
+import type { SourceSaveCode } from "../shared/source-save.ts";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { parseSourceAlbumInput } from "../source-album/input.ts";
@@ -13,9 +14,7 @@ const schema = z.object({ sourceId: z.enum(["khinsider", "zophar"]), externalKey
 }).strict();
 export type SourceSaveInput = z.infer<typeof schema>;
 export class SourceSaveError extends Error {
-  readonly code: "invalid_input" | "unauthorized" | "session_required" | "session_changed" | "policy_disabled" | "policy_changed"
-    | "storage_unavailable" | "invalid_response" | "snapshot_changed" | "result_expired" | "refresh_required" | "content_removed"
-    | "catalog_unavailable" | "cancelled" | "timeout" | "queue_full" | "source_error" | "database_error";
+  readonly code: SourceSaveCode;
   constructor(code: SourceSaveError["code"]) { super(code); this.code = code; }
 }
 export function parseSourceSaveInput(input: unknown): SourceSaveInput {

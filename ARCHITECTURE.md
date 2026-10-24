@@ -53,7 +53,7 @@ Cheerio 1.2.0, TypeScript 7.0.2, Fastify 5.12.7, better-sqlite3 13.0.3, Better A
 
 ### 합성 카탈로그 저장
 
-`src/catalog/input.ts`가 파서 DTO의 strict 구조·한도·소스/URL/원본 키·수록 위치를 검증합니다. `CatalogStore`의 공개 메서드는 연결별 `withDatabase`를 사용하고, 페이지 전체를 동기 immediate 트랜잭션으로 저장합니다. HTTP·네트워크·fixture 자동 적재 경로는 없으며 live-capture는 거절합니다.
+`src/catalog/input.ts`가 파서 DTO의 strict 구조·한도·소스/URL/원본 키·수록 위치를 검증합니다. `CatalogStore`의 공개 메서드는 연결별 `withDatabase`를 사용하고, 페이지 전체를 동기 immediate 트랜잭션으로 저장합니다. CatalogStore 자체에는 HTTP·네트워크·fixture 자동 적재 경로가 없으며, 별도 소스 저장 HTTP 서비스가 정책/세션 확인 후 내부 조합 메서드를 사용합니다. 제품 live-capture 적재는 계속 거절합니다.
 
 `0006_catalog_observations.sql`은 `catalog_observation`(정규화 자료·provenance·경고·검색 범위), `catalog_album_state`(최신 요약/상세·제목·트랙 채택 포인터), `catalog_track_origin`과 `assertion.observation_id`를 추가합니다. 기존 소스 키는 같은 Album UUID를 유지하며 기존 비관리 매핑과 충돌하면 자동 재지정하지 않습니다. capturedAt으로 최신 자료를 결정하고 상세 제목을 검색 표시명보다 우선합니다. parsedAt만 바뀐 재시도는 중복 관찰을 만들지 않습니다.
 
@@ -234,3 +234,10 @@ userId는 요청 body가 아닌 검증된 세션에서 결정합니다. 라이�
 `catalog-archive.ts`는 엄격한 v1/v2 입력을 검증한 뒤 내부 비교에는 참조별 sampleKind를 갖는 v2를 사용합니다. 검사 서명에는 원래 입력의 버전과 종류도 포함합니다. 기존 detached JSON의 종류 누락은 v1 synthetic으로만 읽으며 행을 재작성하지 않습니다. 새 행은 명시적 종류를 저장하고 0013의 INSERT 제약과 기존 불변 제약으로 보존합니다. 스키마 이력은 이전 앱의 잘못된 해석을 차단합니다.
 
 `admitSourceAlbum`의 policyRevision/retainUntil은 `ingestRetainedAlbumInTransaction`에서 관찰 INSERT 또는 동일 관찰의 불변 lease 검사를 거칩니다. 이 경로는 서버 소유 DTO만 사용하고, live이면 고정 제품 정책도 별도로 검사합니다. 제품 정책 unknown과 저장 guard는 유지합니다. 개인 조회/export는 보관 정리 이후 최소 참조/직접 작성한 내용만 반환합니다. [자료 종류와 지원 범위](docs/CATALOG_KINDS.md)
+
+
+### 소스 저장 HTTP와 상세 사전확인
+
+`src/server/search.ts`는 검색·상세와 저장을 하나의 `createSourceRoutes`에 등록해 IP 횟수·동시 요청·취소/서버 종료·12초 예산을 공유합니다. 읽기는 마지막 인증 뒤 동기 recheck를 수행하고, 쓰기는 소스 저장 서비스의 commit 직전 실제 인증 결과를 사용해 바로 응답합니다. 내부 authenticated 정보는 헤더로만 전달하며 JSON 본문에서 제외합니다. 성공 응답 전송 중에는 DB 경계를 점유하지 않습니다.
+
+상세의 save 필드는 최종 재검사 시 저장 서비스의 읽기 전용 selection으로 만듭니다. 가능한 경우만 정확한 관찰 fingerprint/기한을 제공하며 개인 자료나 UUID를 생성하지 않습니다. 저장 서비스는 같은 앱의 실제 인증과 고정 제품 정책을 사용하고 HTTP/env에 정책/인증/자료 종류 주입점을 두지 않습니다. 합성 API 성공 검증은 내부 메서드 교체만 사용합니다. [상세 계약과 검증](docs/SOURCE_SAVE_API.md)

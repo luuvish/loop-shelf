@@ -83,7 +83,7 @@ export async function buildApp(db: Database.Database, config: AuthConfig) {
     const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers),
       query: { disableCookieCache: true, disableRefresh: true } });
     return session ? { userId: session.user.id, sessionId: session.session.id } : null;
-  });
+  }, auth);
   // Session lookup and the operation share one database turn, even after disconnects/errors.
   async function forUser(request: FastifyRequest, reply: FastifyReply, action: (userId: string, sessionId: string) => unknown) {
     return withDatabase(db, async () => {

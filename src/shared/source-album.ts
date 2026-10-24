@@ -21,3 +21,7 @@ export interface SourceAlbumResponse {
   result: SourceAlbumDelivery | SourceAlbumFailure;
 }
 export type SourceAlbumResult = SourceAlbumResponse | { ok: false; code: "invalid_input" | "cancelled" | "queue_full" };
+
+/** HTTP-only save precondition, computed after final authentication and detail recheck. */
+export type SourceAlbumHttpResult = (SourceAlbumResponse & { save: import("./source-save.ts").SourceSaveSelection })
+  | Extract<SourceAlbumResult, { ok: false }>;
