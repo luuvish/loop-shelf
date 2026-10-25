@@ -1,10 +1,10 @@
 # 소스 전송 계층
 
-2026-10-24 구현·오프라인 검증. 실제 KHInsider·Zophar 요청은 활성화하지 않았습니다. 이 문서의 성공은 합성 응답과 교체한 DNS/HTTPS 드라이버를 사용한 계약 검증입니다. 실사이트의 현재 접근 가능성·정책·CORS·음원 재생을 증명하지 않습니다.
+2026-10-24 구현, 2026-10-25 영속 조정 보완. 실제 KHInsider·Zophar 요청은 활성화하지 않았습니다. 이 문서의 성공은 합성 응답과 교체한 DNS/HTTPS 드라이버를 사용한 계약 검증입니다. 실사이트의 현재 접근 가능성·정책·CORS·음원 재생을 증명하지 않습니다.
 
 ## 진입점과 정책
 
-제품 진입점은 `src/sources/transport.ts`의 프로세스 공용 `captureSourcePage(request, signal?)`입니다. 서버 라우트·UI·SQLite 적재에는 아직 연결하지 않았습니다. 입력은 아래 두 종류뿐이며 임의 URL·헤더·쿠키·인증·프록시 옵션을 받지 않습니다.
+제품 Adapter는 `src/sources/transport.ts`의 `getSourceCapture(db)`를 사용하며 같은 로컬 DB를 사용하는 연결/프로세스가 소스별 예약을 공유합니다. 미연결 `captureSourcePage(request, signal?)`는 비활성을 유지하고 coordinator 없는 live 전송도 거절합니다. Adapter·검색/상세 API·화면은 연결했지만 제품 수집 gate는 닫혀 있습니다. 입력은 아래 두 종류뿐이며 임의 URL·헤더·쿠키·인증·프록시 옵션을 받지 않습니다.
 
 ```ts
 type SourceRequest =
@@ -19,9 +19,9 @@ type SourceRequest =
 | KHInsider | 고정 origin의 `/search?search=…&type=album` | `/game-soundtracks/album/{slug}` |
 | Zophar | 고정 origin의 `/search?search=…` | `/music/{system}/{slug}.html` |
 
-`productAccess`를 큐/DNS/HTTPS보다 먼저 검사합니다. 두 소스의 기존 정책은 모두 `unknown`을 유지합니다. 제품 gate는 향후 해당 정책이 허용으로 바뀌더라도 **현재 robots/path 규칙과 소스별 quota의 검토 계약이 구현되기 전에는 계속 닫혀 있습니다**. 환경 변수나 HTTP 요청으로 열 수 없습니다. KHInsider 상세의 기존 기술 차단·파서 미지원도 유지합니다.
+`productAccess`를 큐/DNS/HTTPS보다 먼저 검사합니다. 두 소스의 기존 정책은 모두 `unknown`을 유지합니다. 제품 gate는 해당 정책뿐 아니라 [접근 검토 계약](SOURCE_ACCESS_REVIEW.md)의 정확한 대상 URL·유효한 근거/robots 기한·집행 가능한 공식 quota를 모두 요구합니다. 현재 제품 검토 목록은 비어 있어 계속 닫혀 있습니다. 환경 변수나 HTTP 요청으로 열 수 없습니다. KHInsider 상세의 기존 기술 차단·파서 미지원도 유지합니다.
 
-`transport/engine.ts`의 `createTransport`는 내부 의존성 경계입니다. 테스트만 별도의 합성 허용 판정과 가짜 시계·DNS·응답을 주입하며 실제 `sourceAssessments`를 바꾸지 않습니다. 큐 진입 전, 큐/간격 대기 후, DNS 후, 각 redirect와 본문 반환 전 정책을 다시 검사합니다. 캐시/표시 허가는 별도 gate가 필요하며 이 모듈이 부여하지 않습니다.
+`transport/engine.ts`의 `createTransport`는 내부 의존성 경계입니다. 테스트만 별도의 합성 허용 판정과 가짜 시계·DNS·응답을 주입하며 실제 `sourceAssessments`를 바꾸지 않습니다. 큐 진입 전, 큐/간격 대기 후, DNS 후, 각 redirect와 본문 반환 전, DB 완료/예약 해제 뒤 정책을 다시 검사합니다. 최초 review revision과 달라지면 새 검토도 allowed인 경우를 포함해 진행 중 결과를 거절합니다. 캐시/표시 허가는 별도 gate가 필요하며 이 모듈이 부여하지 않습니다.
 
 ## 주소와 연결
 
@@ -53,7 +53,7 @@ type SourceRequest =
 
 429는 소스 전체의 cooldown을 갱신합니다. Retry-After의 초 단위와 HTTP 날짜 세 형식은 UTC로 해석하고, 없거나 잘못됐거나 이미 지난 날짜이면 60초를 적용합니다. 아주 긴 delta는 안전한 최대 숫자 시각으로 보류하여 짧게 잘라 자동 재시도하지 않습니다. cooldown 중 새 요청/기존 대기 요청은 네트워크 없이 `rate_limited`와 `retryAt`(epoch ms)을 반환합니다. 다른 소스에는 영향을 주지 않습니다. 클라이언트 자체 기본값이며 **사이트의 공식 허용 quota가 아닙니다**.
 
-제한 상태는 단일 프로세스 메모리에만 있습니다. 재시작 뒤 cooldown 보존·여러 프로세스/설치의 공통 quota·같은 운영 기반의 그룹 제한은 미구현이며 활성화 전 검토 대상입니다. 현재 전체 검색의 12초 시간 예산이나 실제 인터넷 지연을 검증한 것으로 확대하지 않습니다.
+0017은 같은 로컬 DB에 소스별 대기열·시도 완료 후 간격·429 cooldown을 보존합니다. 여러 연결/프로세스와 재시작 후에도 공유하며 DB 대기 중 취소/기한을 확인합니다. running 요청은 기한만으로 자동 해제하지 않고 불확실한 종료를 보류합니다. 운영자 조회/복구·시계 전제·백업 후 상태 검토는 [영속 조정 계약](SOURCE_COORDINATION.md)을 따릅니다. 서로 다른 DB/설치·여러 호스트·같은 운영 기반의 그룹 quota는 별도이며 이 자체 기본값을 공식 quota로 보지 않습니다. 실제 인터넷 지연이나 배포 수용량 검증으로 확대하지 않습니다.
 
 ## 결과와 후속 경계
 
@@ -72,7 +72,7 @@ type SourceRequest =
 | `http_error` / `network_error` | 나머지 비정상 HTTP 상태 또는 DNS/TLS/연결/스트림 실패 |
 | `invalid_response` / `response_too_large` | 헤더·인코딩·길이 불일치 또는 본문 상한 초과 |
 
-HTTP 200 challenge/변경된 HTML은 전송 성공일 수 있으나 반드시 기존 `inspectCapturedPage`를 거쳐 `blocked`/`parse_changed`로 분류해야 합니다. 실패를 0건으로 저장하지 않습니다. [상위 Adapter·SQLite 캐시·요청 병합](SOURCE_ADAPTERS.md)은 후속 구현과 합성 검증을 마쳤고 제품 정책은 유지합니다. 카탈로그 적재·로컬/원격 통합 검색·UI·허용된 실사이트 검증은 아직 남아 있습니다.
+HTTP 200 challenge/변경된 HTML은 전송 성공일 수 있으나 반드시 기존 `inspectCapturedPage`를 거쳐 `blocked`/`parse_changed`로 분류해야 합니다. 실패를 0건으로 저장하지 않습니다. [상위 Adapter·SQLite 캐시·요청 병합](SOURCE_ADAPTERS.md), 검색/상세 API·UI는 합성 검증을 마쳤고 제품 정책은 유지합니다. 허용된 실제 자료 적재·실사이트 성공과 활성화는 남아 있습니다. 영속 조정 오류는 `network_error`이며 DB 경로/예외/owner/token을 API에 노출하지 않습니다.
 
 ## 검증
 
@@ -85,4 +85,4 @@ HTTP 200 challenge/변경된 HTML은 전송 성공일 수 있으나 반드시 �
 - 헤더 중복·MIME·인코딩·잘못된 UTF-8·본문 크기/길이/끊김·403/5xx 무재시도.
 - 합성 본문에서 기존 파서로 이어지는 provenance 및 challenge/파서 변경 오류 확인.
 
-전체 타입 검사·빌드·Node 회귀 결과는 README와 PLAN에 기록합니다. 화면/DB 스키마는 변경하지 않았으며 이 단위에서 Playwright나 실브라우저 CORS 검증을 새로 수행한 것은 아닙니다.
+35개는 최초 전송 단계의 검증이며 후속 0017 조정은 별도 17개 검사와 전체 회귀를 추가했습니다. [프로세스·실패/복구·검증](SOURCE_COORDINATION.md) 전체 타입·빌드·Node와 관련 브라우저 결과는 PLAN에 기록합니다. 실제 브라우저 CORS·실사이트 성공을 검증한 것은 아닙니다.

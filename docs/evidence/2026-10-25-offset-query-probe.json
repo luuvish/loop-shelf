@@ -1,0 +1,1961 @@
+{
+  "measuredAt": "2026-10-25T10:02:04.454Z",
+  "environment": {
+    "cpu": "Apple M1 Ultra",
+    "node": "v24.21.0",
+    "sqlite": {
+      "version": "3.53.4"
+    }
+  },
+  "method": {
+    "albums": 10000,
+    "tracks": 100000,
+    "samples": 5,
+    "warmups": 2,
+    "concurrency": 1,
+    "analyze": false,
+    "cache": "warm same connection; variants in listed order",
+    "scope": "SQL prepare/execute; exact baseline rows; no auth/projection/TCP",
+    "preliminary": true
+  },
+  "baselineSha256": "7ca679495406c55fb624eaa7761a2de6fb4a5123ae24c8261067669640b6ec2f",
+  "params": {
+    "q": "synthetic",
+    "limit": 101,
+    "offset": 99900
+  },
+  "measurements": [
+    {
+      "name": "baseline",
+      "setup": "",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 1196.88,
+      "p95Ms": 1214.163,
+      "maxMs": 1214.163,
+      "samplesMs": [
+        1150.463,
+        1144.009,
+        1208.796,
+        1214.163,
+        1196.88
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 153,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 173,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 177,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 190,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 198,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 204,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH track_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 242,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 261,
+          "parent": 0,
+          "notused": 254,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 263,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 291,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "album-first",
+      "setup": "",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM eligible e CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId\n    CROSS JOIN track t  ON t.id=b.track_id AND t.album_id=e.albumId\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 757.526,
+      "p95Ms": 775.117,
+      "maxMs": 775.117,
+      "samplesMs": [
+        775.117,
+        743.603,
+        757.526,
+        728.411,
+        762.113
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 155,
+          "parent": 3,
+          "notused": 207,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 157,
+          "parent": 3,
+          "notused": 62,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_1 (observation_id=?)"
+        },
+        {
+          "id": 163,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 175,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 183,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 189,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH track_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 221,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 237,
+          "parent": 0,
+          "notused": 235,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 239,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 267,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "album-title-index",
+      "setup": "CREATE INDEX probe_track_album_title ON track(album_id,normalize_search(title),id)",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM eligible e CROSS JOIN track t INDEXED BY probe_track_album_title ON t.album_id=e.albumId\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 567.607,
+      "p95Ms": 584.508,
+      "maxMs": 584.508,
+      "samplesMs": [
+        567.607,
+        562.936,
+        584.508,
+        575.147,
+        564.028
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 155,
+          "parent": 3,
+          "notused": 207,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 157,
+          "parent": 3,
+          "notused": 54,
+          "detail": "SEARCH t USING COVERING INDEX probe_track_album_title (album_id=?)"
+        },
+        {
+          "id": 166,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 179,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 187,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 193,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH track_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 224,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 240,
+          "parent": 0,
+          "notused": 235,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 242,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 270,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "covering-lookups",
+      "setup": "CREATE INDEX probe_binding_cover ON catalog_track_binding(observation_id,track_id,position);\n      CREATE INDEX probe_entity_cover ON entity(id,lifecycle); CREATE INDEX probe_origin_cover ON catalog_track_origin(track_id,observation_id);",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b INDEXED BY probe_binding_cover ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity INDEXED BY probe_entity_cover ON track_entity.id=t.id\n    JOIN catalog_track_origin origin INDEXED BY probe_origin_cover ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 605.539,
+      "p95Ms": 618.463,
+      "maxMs": 618.463,
+      "samplesMs": [
+        618.463,
+        605.854,
+        587.442,
+        594.726,
+        605.539
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 147,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 167,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 171,
+          "parent": 3,
+          "notused": 56,
+          "detail": "SEARCH b USING COVERING INDEX probe_binding_cover (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 177,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH origin USING COVERING INDEX probe_origin_cover (track_id=?)"
+        },
+        {
+          "id": 184,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 190,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH track_entity USING COVERING INDEX probe_entity_cover (id=? AND lifecycle=?)"
+        },
+        {
+          "id": 226,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 244,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 261,
+          "parent": 0,
+          "notused": 57,
+          "detail": "SEARCH h USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 266,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 301,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ]
+    },
+    {
+      "name": "album-first-covering",
+      "setup": "",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM eligible e CROSS JOIN catalog_track_binding b INDEXED BY probe_binding_cover ON b.observation_id=e.observationId\n    CROSS JOIN track t  ON t.id=b.track_id AND t.album_id=e.albumId\n    CROSS JOIN entity track_entity INDEXED BY probe_entity_cover ON track_entity.id=t.id\n    JOIN catalog_track_origin origin INDEXED BY probe_origin_cover ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 802.148,
+      "p95Ms": 821.641,
+      "maxMs": 821.641,
+      "samplesMs": [
+        806.976,
+        796.042,
+        821.641,
+        782.756,
+        802.148
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 150,
+          "parent": 3,
+          "notused": 207,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 152,
+          "parent": 3,
+          "notused": 56,
+          "detail": "SEARCH b USING COVERING INDEX probe_binding_cover (observation_id=?)"
+        },
+        {
+          "id": 157,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 169,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH origin USING COVERING INDEX probe_origin_cover (track_id=?)"
+        },
+        {
+          "id": 176,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 182,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH track_entity USING COVERING INDEX probe_entity_cover (id=? AND lifecycle=?)"
+        },
+        {
+          "id": 211,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 226,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 243,
+          "parent": 0,
+          "notused": 55,
+          "detail": "SEARCH h USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 248,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 283,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ]
+    },
+    {
+      "name": "album-title-covering",
+      "setup": "",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM eligible e CROSS JOIN track t INDEXED BY probe_track_album_title ON t.album_id=e.albumId\n    CROSS JOIN catalog_track_binding b INDEXED BY probe_binding_cover ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity INDEXED BY probe_entity_cover ON track_entity.id=t.id\n    JOIN catalog_track_origin origin INDEXED BY probe_origin_cover ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 492.328,
+      "p95Ms": 510.683,
+      "maxMs": 510.683,
+      "samplesMs": [
+        492.328,
+        498.802,
+        510.683,
+        481.844,
+        484.932
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 149,
+          "parent": 3,
+          "notused": 207,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 151,
+          "parent": 3,
+          "notused": 54,
+          "detail": "SEARCH t USING COVERING INDEX probe_track_album_title (album_id=?)"
+        },
+        {
+          "id": 160,
+          "parent": 3,
+          "notused": 56,
+          "detail": "SEARCH b USING COVERING INDEX probe_binding_cover (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 166,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH origin USING COVERING INDEX probe_origin_cover (track_id=?)"
+        },
+        {
+          "id": 173,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 179,
+          "parent": 3,
+          "notused": 55,
+          "detail": "SEARCH track_entity USING COVERING INDEX probe_entity_cover (id=? AND lifecycle=?)"
+        },
+        {
+          "id": 208,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 223,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 240,
+          "parent": 0,
+          "notused": 56,
+          "detail": "SEARCH h USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 245,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 280,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ]
+    },
+    {
+      "name": "inactive-set",
+      "setup": "DROP INDEX probe_binding_cover; DROP INDEX probe_entity_cover; DROP INDEX probe_origin_cover; DROP INDEX probe_track_album_title;",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    \n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE t.id NOT IN (SELECT id FROM entity NOT INDEXED WHERE lifecycle<>'active') AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 850.757,
+      "p95Ms": 872.266,
+      "maxMs": 872.266,
+      "samplesMs": [
+        862.337,
+        872.266,
+        827.207,
+        826.231,
+        850.757
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 150,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 156,
+          "parent": 3,
+          "notused": 0,
+          "detail": "LIST SUBQUERY 3"
+        },
+        {
+          "id": 159,
+          "parent": 156,
+          "notused": 216,
+          "detail": "SCAN entity"
+        },
+        {
+          "id": 167,
+          "parent": 156,
+          "notused": 0,
+          "detail": "CREATE BLOOM FILTER"
+        },
+        {
+          "id": 196,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 200,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 213,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 221,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 255,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 274,
+          "parent": 0,
+          "notused": 255,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 276,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 304,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "hoisted-origins",
+      "setup": "",
+      "sql": "WITH origin_sources AS MATERIALIZED (\n    SELECT o.track_id AS trackId,f.source_entity_id AS sourceEntityId\n    FROM catalog_track_origin o CROSS JOIN catalog_observation f ON f.id=o.observation_id\n  ), eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    \n    JOIN origin_sources os ON os.trackId=t.id AND os.sourceEntityId=e.sourceEntityId\n    WHERE t.id NOT IN (SELECT id FROM entity NOT INDEXED WHERE lifecycle<>'active') AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 677.092,
+      "p95Ms": 691.745,
+      "maxMs": 691.745,
+      "samplesMs": [
+        646.189,
+        677.092,
+        686.704,
+        691.745,
+        674.354
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 2"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 135,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE origin_sources"
+        },
+        {
+          "id": 140,
+          "parent": 135,
+          "notused": 216,
+          "detail": "SCAN o"
+        },
+        {
+          "id": 142,
+          "parent": 135,
+          "notused": 46,
+          "detail": "SEARCH f USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 167,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 173,
+          "parent": 3,
+          "notused": 0,
+          "detail": "LIST SUBQUERY 4"
+        },
+        {
+          "id": 176,
+          "parent": 173,
+          "notused": 216,
+          "detail": "SCAN entity"
+        },
+        {
+          "id": 184,
+          "parent": 173,
+          "notused": 0,
+          "detail": "CREATE BLOOM FILTER"
+        },
+        {
+          "id": 213,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 217,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 241,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH os USING AUTOMATIC COVERING INDEX (trackId=? AND sourceEntityId=?)"
+        },
+        {
+          "id": 276,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 294,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 311,
+          "parent": 0,
+          "notused": 55,
+          "detail": "SEARCH h USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 316,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 351,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ]
+    },
+    {
+      "name": "cache-64-baseline",
+      "setup": "PRAGMA cache_size=-65536",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 798.951,
+      "p95Ms": 803.895,
+      "maxMs": 803.895,
+      "samplesMs": [
+        802.579,
+        803.895,
+        762.377,
+        770.374,
+        798.951
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 153,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 173,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 177,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 190,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 198,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 204,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH track_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 242,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 261,
+          "parent": 0,
+          "notused": 254,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 263,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 291,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "cache-64-inactive-set",
+      "setup": "",
+      "sql": "WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    \n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE t.id NOT IN (SELECT id FROM entity NOT INDEXED WHERE lifecycle<>'active') AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 630.054,
+      "p95Ms": 662.54,
+      "maxMs": 662.54,
+      "samplesMs": [
+        610.698,
+        636.871,
+        630.054,
+        626.07,
+        662.54
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 1"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 150,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 156,
+          "parent": 3,
+          "notused": 0,
+          "detail": "LIST SUBQUERY 3"
+        },
+        {
+          "id": 159,
+          "parent": 156,
+          "notused": 216,
+          "detail": "SCAN entity"
+        },
+        {
+          "id": 167,
+          "parent": 156,
+          "notused": 0,
+          "detail": "CREATE BLOOM FILTER"
+        },
+        {
+          "id": 196,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 200,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 213,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 221,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 255,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 274,
+          "parent": 0,
+          "notused": 255,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 276,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 304,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    },
+    {
+      "name": "cache-64-hoisted-origins",
+      "setup": "",
+      "sql": "WITH origin_sources AS MATERIALIZED (\n    SELECT o.track_id AS trackId,f.source_entity_id AS sourceEntityId\n    FROM catalog_track_origin o CROSS JOIN catalog_observation f ON f.id=o.observation_id\n  ), eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    \n    JOIN origin_sources os ON os.trackId=t.id AND os.sourceEntityId=e.sourceEntityId\n    WHERE t.id NOT IN (SELECT id FROM entity NOT INDEXED WHERE lifecycle<>'active') AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit OFFSET @offset\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 609.416,
+      "p95Ms": 622.767,
+      "maxMs": 622.767,
+      "samplesMs": [
+        609.416,
+        605.371,
+        603.49,
+        622.767,
+        612.656
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 28,
+          "parent": 6,
+          "notused": 216,
+          "detail": "SCAN a"
+        },
+        {
+          "id": 31,
+          "parent": 6,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 2"
+        },
+        {
+          "id": 35,
+          "parent": 31,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 43,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 53,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 61,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 69,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 76,
+          "parent": 6,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 86,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 94,
+          "parent": 6,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 135,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE origin_sources"
+        },
+        {
+          "id": 140,
+          "parent": 135,
+          "notused": 216,
+          "detail": "SCAN o"
+        },
+        {
+          "id": 142,
+          "parent": 135,
+          "notused": 46,
+          "detail": "SEARCH f USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 167,
+          "parent": 3,
+          "notused": 212,
+          "detail": "SCAN t USING COVERING INDEX catalog_track_search_title_idx"
+        },
+        {
+          "id": 173,
+          "parent": 3,
+          "notused": 0,
+          "detail": "LIST SUBQUERY 4"
+        },
+        {
+          "id": 176,
+          "parent": 173,
+          "notused": 216,
+          "detail": "SCAN entity"
+        },
+        {
+          "id": 184,
+          "parent": 173,
+          "notused": 0,
+          "detail": "CREATE BLOOM FILTER"
+        },
+        {
+          "id": 213,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 217,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 241,
+          "parent": 3,
+          "notused": 53,
+          "detail": "SEARCH os USING AUTOMATIC COVERING INDEX (trackId=? AND sourceEntityId=?)"
+        },
+        {
+          "id": 276,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR LAST 4 TERMS OF ORDER BY"
+        },
+        {
+          "id": 294,
+          "parent": 0,
+          "notused": 216,
+          "detail": "SCAN e"
+        },
+        {
+          "id": 311,
+          "parent": 0,
+          "notused": 55,
+          "detail": "SEARCH h USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 316,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 351,
+          "parent": 0,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        }
+      ]
+    },
+    {
+      "name": "materialized-search",
+      "setup": "PRAGMA cache_size=-16000;\n      CREATE TABLE probe_search AS SELECT id,sortTitle,sourceId,externalKey,position,albumId FROM (WITH eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM album a CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM track t INDEXED BY catalog_track_search_title_idx CROSS JOIN eligible e ON e.albumId=t.album_id\n    CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),'synthetic')>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT -1 OFFSET 0\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id);\n      CREATE INDEX probe_search_order ON probe_search(sortTitle,sourceId,externalKey,position,id);",
+      "sql": "WITH page_ids AS MATERIALIZED (\n        SELECT * FROM probe_search WHERE instr(sortTitle,@q)>0 ORDER BY sortTitle,sourceId,externalKey,position,id LIMIT @limit OFFSET @offset\n      ), eligible AS MATERIALIZED (\n    SELECT a.id AS albumId,a.title AS albumTitle,s.id AS sourceEntityId,s.source_id AS sourceId,s.external_key AS externalKey,s.page_url AS pageUrl,\n      adopted.id AS observationId,adopted.captured_at AS capturedAt,adopted.parser_version AS parserVersion,adopted.expires_at AS expiresAt,\n      title_evidence.id AS titleObservationId,title_evidence.captured_at AS titleCapturedAt,\n      title_evidence.parser_version AS titleParserVersion,title_evidence.expires_at AS titleExpiresAt,\n      CASE WHEN adopted.tracks_sha256=latest.tracks_sha256 AND latest.content_state='active' THEN 'unchanged' ELSE 'review_required' END AS trackState\n    FROM (SELECT DISTINCT albumId FROM page_ids) p CROSS JOIN album a ON a.id=p.albumId CROSS JOIN entity album_entity ON album_entity.id=a.id\n    JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id\n    JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'\n    JOIN catalog_observation title_evidence ON title_evidence.id=c.title_observation_id AND title_evidence.content_state='active'\n    JOIN catalog_observation adopted ON adopted.id=c.tracks_observation_id AND adopted.content_state='active'\n    LEFT JOIN catalog_observation latest ON latest.id=c.detail_observation_id\n    WHERE album_entity.lifecycle='active' AND s.availability IN ('unverified','available')\n    AND NOT EXISTS (SELECT 1 FROM catalog_removal r WHERE r.album_id=a.id)\n    \n  ), hits AS MATERIALIZED (\n    SELECT t.id,b.position,e.albumId,normalize_search(t.title) AS sortTitle,e.sourceId,e.externalKey\n    FROM page_ids p CROSS JOIN track t ON t.id=p.id CROSS JOIN eligible e ON e.albumId=t.album_id\n          CROSS JOIN catalog_track_binding b ON b.observation_id=e.observationId AND b.track_id=t.id\n    CROSS JOIN entity track_entity ON track_entity.id=t.id\n    JOIN catalog_track_origin origin ON origin.track_id=t.id\n    JOIN catalog_observation first_seen ON first_seen.id=origin.observation_id AND first_seen.source_entity_id=e.sourceEntityId\n    WHERE track_entity.lifecycle='active' AND instr(normalize_search(t.title),@q)>0\n    \n    \n    ORDER BY sortTitle,e.sourceId,e.externalKey,b.position,t.id LIMIT @limit\n  ) SELECT t.id,t.title,h.sortTitle,h.position,t.track_label AS displayNumber,t.disc_label AS discLabel,t.duration_ms AS durationMs,e.*\n    FROM hits h JOIN track t ON t.id=h.id JOIN eligible e ON e.albumId=h.albumId\n    ORDER BY h.sortTitle,h.sourceId,h.externalKey,h.position,h.id",
+      "p50Ms": 10.845,
+      "p95Ms": 11.512,
+      "maxMs": 11.512,
+      "samplesMs": [
+        10.519,
+        11.512,
+        11.05,
+        10.845,
+        10.359
+      ],
+      "plan": [
+        {
+          "id": 3,
+          "parent": 0,
+          "notused": 0,
+          "detail": "MATERIALIZE hits"
+        },
+        {
+          "id": 6,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE page_ids"
+        },
+        {
+          "id": 17,
+          "parent": 6,
+          "notused": 225,
+          "detail": "SCAN probe_search USING INDEX probe_search_order"
+        },
+        {
+          "id": 38,
+          "parent": 3,
+          "notused": 0,
+          "detail": "MATERIALIZE eligible"
+        },
+        {
+          "id": 40,
+          "parent": 38,
+          "notused": 0,
+          "detail": "CO-ROUTINE p"
+        },
+        {
+          "id": 44,
+          "parent": 40,
+          "notused": 216,
+          "detail": "SCAN page_ids"
+        },
+        {
+          "id": 52,
+          "parent": 40,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR DISTINCT"
+        },
+        {
+          "id": 77,
+          "parent": 38,
+          "notused": 186,
+          "detail": "SCAN p"
+        },
+        {
+          "id": 80,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH a USING INDEX sqlite_autoindex_album_1 (id=?)"
+        },
+        {
+          "id": 87,
+          "parent": 38,
+          "notused": 0,
+          "detail": "CORRELATED SCALAR SUBQUERY 3"
+        },
+        {
+          "id": 91,
+          "parent": 87,
+          "notused": 39,
+          "detail": "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_removal_2 (album_id=?)"
+        },
+        {
+          "id": 99,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH album_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 110,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH c USING INDEX sqlite_autoindex_catalog_album_state_1 (album_id=?)"
+        },
+        {
+          "id": 119,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH s USING INDEX sqlite_autoindex_source_entity_1 (id=?)"
+        },
+        {
+          "id": 127,
+          "parent": 38,
+          "notused": 47,
+          "detail": "SEARCH sk USING INDEX sqlite_autoindex_catalog_source_kind_1 (source_entity_id=?)"
+        },
+        {
+          "id": 137,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH title_evidence USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 144,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH adopted USING INDEX sqlite_autoindex_catalog_observation_1 (id=?)"
+        },
+        {
+          "id": 152,
+          "parent": 38,
+          "notused": 46,
+          "detail": "SEARCH latest USING INDEX sqlite_autoindex_catalog_observation_1 (id=?) LEFT-JOIN"
+        },
+        {
+          "id": 210,
+          "parent": 3,
+          "notused": 215,
+          "detail": "SCAN p"
+        },
+        {
+          "id": 212,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 236,
+          "parent": 3,
+          "notused": 52,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        },
+        {
+          "id": 240,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH b USING INDEX sqlite_autoindex_catalog_track_binding_2 (observation_id=? AND track_id=?)"
+        },
+        {
+          "id": 254,
+          "parent": 3,
+          "notused": 46,
+          "detail": "SEARCH track_entity USING INDEX sqlite_autoindex_entity_1 (id=?)"
+        },
+        {
+          "id": 265,
+          "parent": 3,
+          "notused": 47,
+          "detail": "SEARCH origin USING INDEX sqlite_autoindex_catalog_track_origin_1 (track_id=?)"
+        },
+        {
+          "id": 274,
+          "parent": 3,
+          "notused": 44,
+          "detail": "SEARCH first_seen USING COVERING INDEX sqlite_autoindex_catalog_observation_3 (id=? AND source_entity_id=?)"
+        },
+        {
+          "id": 302,
+          "parent": 3,
+          "notused": 0,
+          "detail": "USE TEMP B-TREE FOR ORDER BY"
+        },
+        {
+          "id": 316,
+          "parent": 0,
+          "notused": 253,
+          "detail": "SCAN h"
+        },
+        {
+          "id": 318,
+          "parent": 0,
+          "notused": 46,
+          "detail": "SEARCH t USING INDEX sqlite_autoindex_track_1 (id=?)"
+        },
+        {
+          "id": 346,
+          "parent": 0,
+          "notused": 53,
+          "detail": "SEARCH e USING AUTOMATIC COVERING INDEX (albumId=?)"
+        }
+      ]
+    }
+  ]
+}

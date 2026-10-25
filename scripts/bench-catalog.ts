@@ -12,6 +12,8 @@ import { withDatabase } from "../src/database/access.ts";
 import { createAccount } from "../src/auth/accounts.ts";
 import { buildApp } from "../src/server/app.ts";
 import { CatalogBrowseStore } from "../src/catalog/browse.ts";
+import { CatalogTrackSearchStore } from "../src/catalog/track-search.ts";
+import { rebuildCatalogSearchIndex } from "../src/catalog/search-index.ts";
 import { CatalogLibraryStore } from "../src/library/catalog.ts";
 import { queryPlans } from "./benchmarks/query-plans.ts";
 import { fixtureVersion, seedBenchmark } from "./benchmarks/catalog-fixture.ts";
@@ -20,7 +22,7 @@ const { values } = parseArgs({ options: { albums: { type: "string", default: "10
   samples: { type: "string", default: "30" }, output: { type: "string" } }, strict: true });
 function integer(value: string, min: number, max: number) { const n = Number(value); if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`Expected integer ${min}..${max}`); return n; }
 const albums = integer(values.albums, 20, 10000), tracks = integer(values.tracks, 1, 100), samples = integer(values.samples, 3, 100);
-const codeFiles = ["src/catalog/retention.ts", "src/catalog/album-query.ts", "src/catalog/browse.ts", "src/catalog/entities.ts", "src/library/catalog.ts", "scripts/benchmarks/catalog-fixture.ts", "scripts/benchmarks/query-plans.ts", "scripts/bench-catalog.ts"];
+const codeFiles = ["src/server/app.ts", "src/database/connection.ts", "src/database/backup.ts", "src/catalog/retention.ts", "src/catalog/album-query.ts", "src/catalog/browse.ts", "src/catalog/track-search.ts", "src/catalog/track-query.ts", "src/catalog/search-index.ts", "src/catalog/track-search-cursor.ts", "src/catalog/input.ts", "src/shared/catalog-track-search.ts", "src/catalog/entities.ts", "src/library/catalog.ts", "scripts/benchmarks/catalog-fixture.ts", "scripts/benchmarks/query-plans.ts", "scripts/bench-catalog.ts"];
 const code = Object.fromEntries(codeFiles.map((file) => [file, createHash("sha256").update(readFileSync(new URL(`../${file}`, import.meta.url))).digest("hex")]));
 const directory = mkdtempSync(join(tmpdir(), "loopshelf-bench-")), filename = join(directory, "catalog.sqlite");
 const db = openDatabase(filename), config = { baseURL: "http://127.0.0.1:3000", secret: randomBytes(32).toString("hex") };
@@ -45,8 +47,24 @@ try {
   assert.equal(count("catalog_track_binding"), albums * tracks);
   assert.equal(count("library_item"), fixture.counts.personal - fixture.counts.detached + fixture.counts.otherPersonal);
   assert.equal(count("catalog_detached_item"), fixture.counts.detached); assert.equal(count("user_source_link"), fixture.counts.links);
-  verifyDatabase(db); db.pragma("wal_checkpoint(TRUNCATE)");
+  const verifyStart = performance.now(); verifyDatabase(db); const verifyDatabaseMs = performance.now() - verifyStart;
+  db.pragma("wal_checkpoint(TRUNCATE)");
   const browse = new CatalogBrowseStore(db), library = new CatalogLibraryStore(db), last = String(albums - 1).padStart(5, "0");
+  const trackSearch = new CatalogTrackSearchStore(db);
+  // Obtain valid cursors through the service outside timed probes; compare the exact next page.
+  // A cursor cannot jump directly to these positions without prior traversal (legacy offset bootstraps this benchmark only).
+  function cursorProbe(name: string, offset: number, limit: number, sourceId?: "zophar") {
+    const query = { q: "Synthetic", limit, ...(sourceId ? { sourceId } : {}) };
+    const cursor = trackSearch.search({ ...query, offset }).nextCursor; assert.ok(cursor);
+    const input = { ...query, cursor }, expected = trackSearch.search({ ...query, offset: offset + limit }).items;
+    assert.deepEqual(trackSearch.search(input).items, expected);
+    return { name, input, offset: offset + limit, run: () => trackSearch.search(input) };
+  }
+  const deepLimit = Math.min(100, Math.floor(albums * tracks / 2));
+  const cursorCases = [cursorProbe("tracks-cursor-next", 0, 12),
+    cursorProbe("tracks-cursor-middle", Math.max(0, Math.floor(albums * tracks / 2) - deepLimit), deepLimit),
+    cursorProbe("tracks-cursor-deep", Math.max(0, albums * tracks - deepLimit * 2), deepLimit),
+    cursorProbe("tracks-cursor-source", 0, Math.min(12, Math.floor(albums * tracks / 4)), "zophar")];
   const cases = [
     { name: "albums-first", run: () => browse.list(owner.id, {}) },
     { name: "albums-common", run: () => browse.list(owner.id, { q: "Synthetic" }) },
@@ -59,6 +77,18 @@ try {
     { name: "albums-source-page", run: () => browse.list(owner.id, { sourceId: "zophar", offset: 100, limit: 100 }) },
     { name: "albums-deep-page", run: () => browse.list(owner.id, { offset: Math.max(0, albums - 100), limit: 100 }) },
     { name: "album-tracks", run: () => browse.detail(owner.id, fixture.albumIds.at(-1)!, { limit: 100 }) },
+    { name: "tracks-common", run: () => trackSearch.search({ q: "Synthetic" }) },
+    { name: "tracks-number-10", run: () => trackSearch.search({ q: "Track 10" }) },
+    { name: "tracks-no-match", run: () => trackSearch.search({ q: "absent-title" }) },
+    { name: "tracks-korean-1", run: () => trackSearch.search({ q: "숲" }) },
+    { name: "tracks-korean-2", run: () => trackSearch.search({ q: "기억" }) },
+    { name: "tracks-japanese-1", run: () => trackSearch.search({ q: "星" }) },
+    { name: "tracks-japanese-2", run: () => trackSearch.search({ q: "記憶" }) },
+    { name: "tracks-normalized", run: () => trackSearch.search({ q: "fantasy" }) },
+    { name: "tracks-literal", run: () => trackSearch.search({ q: "%_" }) },
+    { name: "tracks-source-page", run: () => trackSearch.search({ q: "Synthetic", sourceId: "zophar", limit: 100, offset: 100 }) },
+    { name: "tracks-deep-page", run: () => trackSearch.search({ q: "Synthetic", limit: 100, offset: Math.max(0, albums * tracks - 100) }) },
+    ...cursorCases,
     { name: "candidates-first", run: () => browse.candidates(owner.id, fixture.savedIds[0]!, {}) },
     { name: "candidates-no-match", run: () => browse.candidates(owner.id, fixture.savedIds[0]!, { q: "absent-title" }) },
     { name: "library-first", run: () => library.list(owner.id, { limit: 12 }) },
@@ -78,22 +108,31 @@ try {
     const result = { name: item.name, layer: "service", ...stats(times, firstMs), queries: queryPlans(db, item.run) };
     measurements.push(result); process.stderr.write(`${item.name}: p95 ${result.p95Ms} ms\n`);
   }
-  app = await buildApp(db, config);
+  const startupStart = performance.now(); app = await buildApp(db, config); const startupMs = performance.now() - startupStart;
   const signIn = await app.inject({ method: "POST", url: "/api/auth/sign-in/email", headers: { host: "127.0.0.1:3000", origin: config.baseURL }, payload: { email: owner.email, password } });
   assert.equal(signIn.statusCode, 200);
-  const headers = { host: "127.0.0.1:3000", cookie: signIn.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") };
-  for (const url of ["/api/catalog/albums?q=absent-title", `/api/catalog/albums/${fixture.albumIds.at(-1)}`, "/api/library/catalog?q=absent-title"]) {
+  const cookie = signIn.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+  const session = await app.inject({ url: "/api/auth/get-session", headers: { host: "127.0.0.1:3000", cookie } }); assert.equal(session.statusCode, 200);
+  const headers = { host: "127.0.0.1:3000", cookie, "x-loopshelf-session": session.json().session.id as string };
+  const cursorUrl = `/api/catalog/tracks?${new URLSearchParams({ q: "Synthetic", limit: String(deepLimit), cursor: cursorCases[2]!.input.cursor })}`;
+  for (const url of ["/api/catalog/albums?q=absent-title", `/api/catalog/albums/${fixture.albumIds.at(-1)}`, "/api/library/catalog?q=absent-title",
+    "/api/catalog/tracks?q=absent-title", "/api/catalog/tracks?q=Synthetic", cursorUrl]) {
     const measure = async () => { const start = performance.now(), response = await app!.inject({ url, headers }); const elapsed = performance.now() - start;
       assert.equal(response.statusCode, 200, response.body); assert.equal(response.headers["cache-control"], "no-store"); return elapsed; };
     const firstMs = await measure(); for (let i = 0; i < 3; i++) await measure();
     const times = []; for (let i = 0; i < samples; i++) times.push(await measure());
-    measurements.push({ name: url.replace(fixture.albumIds.at(-1)!, ":albumId"), layer: "authenticated-inject", ...stats(times, firstMs), queries: [] });
+    measurements.push({ name: url === cursorUrl ? "/api/catalog/tracks?cursor=:deep" : url.replace(fixture.albumIds.at(-1)!, ":albumId"), layer: "authenticated-inject", ...stats(times, firstMs), queries: [] });
   }
-  const report = { measuredAt: new Date().toISOString(), fixtureVersion, fixture: fixture.counts, seedMs: round(seedMs), databaseBytes: statSync(filename).size,
+  // Single maintenance observations, outside timed request probes; not p95 or deployment bounds.
+  const rebuildStart = performance.now(), rebuilt = await rebuildCatalogSearchIndex(db), rebuildMs = performance.now() - rebuildStart;
+  const maintenance = { indexedTracks: rebuilt.indexedTracks, verifyDatabaseMs: round(verifyDatabaseMs), startupMs: round(startupMs), rebuildMs: round(rebuildMs),
+    method: "one warm observation each; verification includes integrity/FKs/index equality; startup includes retention/index verification and app construction; rebuild includes retention, atomic replacement and verification" };
+  const report = { measuredAt: new Date().toISOString(), fixtureVersion, fixture: fixture.counts, seedMs: round(seedMs), databaseBytes: statSync(filename).size, maintenance,
     environment: { node: process.version, sqlite: db.prepare("SELECT sqlite_version() AS version").get(), platform: platform(), release: release(), arch: process.arch,
       cpu: cpus()[0]?.model, logicalCpus: cpus().length, memoryGiB: round(totalmem() / 1024 ** 3), pragmas: Object.fromEntries(["journal_mode", "synchronous", "cache_size", "page_size", "automatic_index"].map((key) => [key, db.pragma(key, { simple: true })])) },
     method: { samples, warmups: 3, percentile: "nearest-rank", concurrency: 1, analyze: false,
       cache: "same connection after service ingestion; warm OS cache; first is not a cold-disk measurement", timing: "service includes query preparation and projection; authenticated-inject includes auth/serialization but not TCP/browser or queue contention" },
+    cursorProbes: cursorCases.map(({ name, offset, input }) => ({ name, equivalentOffset: offset, limit: input.limit, sourceId: input.sourceId ?? null })),
     migrations: db.prepare("SELECT name,sha256 FROM schema_migration ORDER BY name").all(),
     code,
     targetMs: 300, passed: measurements.every((row) => row.p95Ms <= 300), measurements };

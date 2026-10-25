@@ -6,8 +6,12 @@ import type { CatalogAlbumPage, CatalogAlbumDetail, CatalogCandidates } from "..
 import type { CatalogArchiveV2 } from "../src/shared/catalog-transfer.ts";
 import type { SearchResponse, SearchResult } from "../src/shared/search.ts";
 import type { SourceId } from "../src/sources/types.ts";
+import type { SourceSaveSelection, SourceSaveSuccess } from "../src/shared/source-save.ts";
+import { saveSelection, validSavedSourceItem, validSourceSaveSuccess } from "./source-save-response.ts";
 import type { SourceAlbumResponse, SourceAlbumResult } from "../src/shared/source-album.ts";
 import { validSourceAlbumResponse, type SourceAlbumSelection } from "./source-album-response.ts";
+import type { CatalogTrackSearchPage } from "../src/shared/catalog-track-search.ts";
+import { TRACK_PAGE_SIZE, trackPageLifetime, validTrackPage, type TrackQuery } from "./catalog-track-response.ts";
 
 export interface User { id: string; name: string; email: string; sessionId: string }
 
@@ -50,18 +54,26 @@ export const signIn = (email: string, password: string) => request("/auth/sign-i
 export const signOut = () => request("/auth/sign-out", { method: "POST", body: "{}" });
 
 export interface SearchQuery { q: string; sources: SourceId[]; limit: number; offset: number }
-async function confirmedSourceRequest<T>(path: string, input: unknown, user: User, signal: AbortSignal): Promise<T> {
+async function confirmedRequest<T>(path: string, init: RequestInit, user: User, signal: AbortSignal): Promise<T> {
   const combined = AbortSignal.any([signal, AbortSignal.timeout(15000)]);
-  const result = await request<T>(path, { method: "POST", body: JSON.stringify(input), signal: combined,
-    headers: { "X-LoopShelf-Session": user.sessionId } }, user.id, user.sessionId);
+  let result: T | undefined, failure: unknown;
+  try { result = await request<T>(path, { ...init, signal: combined,
+    headers: { "X-LoopShelf-Session": user.sessionId } }, user.id, user.sessionId); }
+  catch (cause) { combined.throwIfAborted(); if (cause instanceof ApiError && cause.status === 401) throw cause; failure = cause; }
+  // Failed writes can still have committed, and another tab may have changed the cookie during any response.
   const current = await session(combined); combined.throwIfAborted();
   if (!current || current.id !== user.id || current.sessionId !== user.sessionId) {
     window.dispatchEvent(new Event("loopshelf:session-expired")); throw new ApiError(401, "session_changed");
   }
-  return result;
+  if (failure) throw failure;
+  return result as T;
 }
+async function confirmedSourceRequest<T>(path: string, input: unknown, user: User, signal: AbortSignal): Promise<T> {
+  return confirmedRequest(path, { method: "POST", body: JSON.stringify(input) }, user, signal);
+}
+export interface SourceAlbumView extends SourceAlbumResponse { save: SourceSaveSelection }
 export function sourceAlbumApi(user: User) {
-  return async (selection: SourceAlbumSelection, signal: AbortSignal): Promise<{ response: SourceAlbumResponse; expiresInMs: number | null }> => {
+  return async (selection: SourceAlbumSelection, signal: AbortSignal): Promise<{ response: SourceAlbumView; expiresInMs: number | null; saveExpiresInMs: number }> => {
     const started = performance.now();
     const { sourceId, externalKey } = selection.ref;
     const value = await confirmedSourceRequest<SourceAlbumResult>("/source-album", { sourceId, externalKey }, user, signal);
@@ -70,7 +82,26 @@ export function sourceAlbumApi(user: User) {
     // Conservatively deduct the whole request/session-check duration from server-relative remaining lifetime.
     const expiresInMs = value.result.ok ? Date.parse(value.result.delivery.expiresAt) - Date.parse(value.completedAt) - (performance.now() - started) : null;
     if (expiresInMs !== null && expiresInMs <= 0) throw new ApiError(410, "result_expired");
-    return { response: value, expiresInMs };
+    const guidance = saveSelection((value as SourceAlbumView).save, value);
+    const saveExpiresInMs = guidance.status === "available" ? Math.max(0, Date.parse(guidance.validUntil) - Date.parse(value.completedAt) - (performance.now() - started)) : 0;
+    return { response: { ...value, save: guidance.status === "available" && saveExpiresInMs === 0 ? { status: "unavailable", code: "result_expired" } : guidance }, expiresInMs, saveExpiresInMs };
+  };
+}
+export function sourceSaveApi(user: User) {
+  return {
+    async lookup(selection: SourceAlbumSelection, signal: AbortSignal) {
+      const query = new URLSearchParams({ sourceId: selection.ref.sourceId, externalKey: selection.ref.externalKey });
+      const result = await confirmedRequest<{ item: CatalogLibraryItem | null }>(`/library/catalog/source-save?${query}`, {}, user, signal);
+      if (!result || result.item !== null && !validSavedSourceItem(result.item, selection)) throw new ApiError(502, "invalid_response");
+      return result.item;
+    },
+    async save(selection: SourceAlbumSelection, expectedFingerprint: string, draft: CatalogDraft, signal: AbortSignal) {
+      const result = await confirmedSourceRequest<SourceSaveSuccess>("/source-album/save", {
+        sourceId: selection.ref.sourceId, externalKey: selection.ref.externalKey, expectedFingerprint, ...draft,
+      }, user, signal);
+      if (!validSourceSaveSuccess(result, selection)) throw new ApiError(502, "invalid_response");
+      return result;
+    },
   };
 }
 export function searchApi(user: User) {
@@ -158,6 +189,25 @@ export function catalogApi(userId: string, sessionId: string) {
   };
 }
 export type CatalogApi = ReturnType<typeof catalogApi>;
+export function catalogTrackApi(user: User) {
+  return {
+    async search(input: TrackQuery, signal: AbortSignal) {
+      const started = performance.now(), params = new URLSearchParams({ q: input.q, limit: String(TRACK_PAGE_SIZE) });
+      if (input.sourceId) params.set("sourceId", input.sourceId);
+      if (input.cursor) params.set("cursor", input.cursor);
+      const page = await confirmedRequest<CatalogTrackSearchPage>(`/catalog/tracks?${params}`, {}, user, signal);
+      if (!validTrackPage(page, input)) throw new ApiError(502, "invalid_response");
+      const lifetime = trackPageLifetime(page, performance.now() - started);
+      if (lifetime !== null && lifetime <= 0) throw new ApiError(410, "result_expired");
+      return { page, lifetime };
+    },
+    // Reuse catalog album/save endpoints with response and current-cookie session confirmation.
+    browse: { ...catalogApi(user.id, user.sessionId),
+      album: (id: string, offset: number, signal: AbortSignal) => confirmedRequest<CatalogAlbumDetail>(`/catalog/albums/${id}?limit=12&offset=${offset}`, {}, user, signal),
+      create: (entityId: string, signal: AbortSignal) => confirmedRequest<{ item: CatalogLibraryItem; created: boolean }>("/library/catalog", { method: "POST", body: JSON.stringify({ entityId }) }, user, signal),
+    },
+  };
+}
 export function catalogError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "catalog_unavailable") return "현재 이용할 수 없는 카탈로그입니다. 최신 내용을 확인해 주세요.";

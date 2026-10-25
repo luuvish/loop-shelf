@@ -11,6 +11,10 @@ export default defineConfig({
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } } : {}),
   },
   projects: [
+    { name: "track-desktop", testMatch: "track-search.spec.ts", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 }, baseURL: "http://127.0.0.1:4199" } },
+    { name: "track-mobile", testMatch: "track-search.spec.ts", use: { ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, baseURL: "http://127.0.0.1:4200" } },
+    { name: "save-desktop", testMatch: "source-save.spec.ts", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 }, baseURL: "http://127.0.0.1:4197" } },
+    { name: "save-mobile", testMatch: "source-save.spec.ts", use: { ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, baseURL: "http://127.0.0.1:4198" } },
     { name: "album-desktop", testMatch: "source-album.spec.ts", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 }, baseURL: "http://127.0.0.1:4195" } },
     { name: "album-mobile", testMatch: "source-album.spec.ts", use: { ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, baseURL: "http://127.0.0.1:4196" } },
     { name: "search-desktop", testMatch: "search.spec.ts", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 }, baseURL: "http://127.0.0.1:4193" } },
@@ -26,6 +30,10 @@ export default defineConfig({
     { name: "recovery", testMatch: "recovery.spec.ts", use: { ...devices["Desktop Chrome"], baseURL: "http://127.0.0.1:4190" } },
   ],
   webServer: [
+    { command: "node tests/browser/server.ts --track-desktop", url: "http://127.0.0.1:4199/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
+    { command: "node tests/browser/server.ts --track-mobile", url: "http://127.0.0.1:4200/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
+    { command: "node tests/browser/server.ts --save-desktop", url: "http://127.0.0.1:4197/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
+    { command: "node tests/browser/server.ts --save-mobile", url: "http://127.0.0.1:4198/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
     { command: "node tests/browser/server.ts --album-desktop", url: "http://127.0.0.1:4195/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
     { command: "node tests/browser/server.ts --album-mobile", url: "http://127.0.0.1:4196/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },
     { command: "node tests/browser/server.ts --search-desktop", url: "http://127.0.0.1:4193/api/health", reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 5000 } },

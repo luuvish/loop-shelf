@@ -83,7 +83,7 @@ export function Library({ user, onLogout }: { user: User; onLogout: () => Promis
     </aside>
     <main id="library-main" className="library-main" ref={main} tabIndex={-1}>
       <PwaUpdateNotice />
-      {view === "search" ? <><MusicSearch user={user} suspended={pending === "logout"} onBookmark={() => { setView("bookmarks"); setModal({ kind: "editor", item: null }); }} />{actionError && <p className="form-error" role="alert">{actionError}</p>}</>
+      {view === "search" ? <><MusicSearch onLibrary={() => { setView("catalog"); }} user={user} suspended={pending === "logout"} onBookmark={() => { setView("bookmarks"); setModal({ kind: "editor", item: null }); }} />{actionError && <p className="form-error" role="alert">{actionError}</p>}</>
         : view === "catalog" ? <><CatalogShelf user={user} refreshToken={revision} />{actionError && <p className="form-error" role="alert">{actionError}</p>}</> : <>
       <div className="topline"><span>라이브러리 <span className="crumb">/</span> {favorite ? "즐겨찾기" : "내 북마크"}</span><span className="private-label"><span />나만의 컬렉션</span></div>
       <header className="page-header"><div><span className="eyebrow">{favorite ? "ON REPEAT" : "MY MUSIC SHELF"}</span><h1 ref={heading} tabIndex={-1}>

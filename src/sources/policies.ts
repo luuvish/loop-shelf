@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { PageKind, SourceId } from "./types.ts";
 
 export type PolicyOperation = "search" | "album" | "cache" | "display" | "artwork" | "directAudio" | "embed";
@@ -27,6 +28,10 @@ export const sourceAssessments: Readonly<Record<SourceId, SourceAssessment>> = {
     technical: { search: "sample-verified", album: "sample-verified" },
   },
 };
+
+export function sourceAssessmentRevision(source: SourceId): string {
+  return createHash("sha256").update(JSON.stringify(sourceAssessments[source])).digest("hex");
+}
 
 /** Product code must check this BEFORE transport, cache writes, or cached display. */
 export function productAccess(source: SourceId, operation: PolicyOperation):

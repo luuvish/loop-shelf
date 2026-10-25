@@ -1,9 +1,9 @@
 import type { SourceId } from "../types.ts";
-import { parseHttpDate } from "../http-date.ts";
+import { cooldownUntil } from "./cooldown.ts";
 import { selectAddress } from "./addresses.ts";
 import { redirectUrl, requestUrl } from "./requests.ts";
 import { abortable, TRANSPORT_LIMITS as limits, TransportFault,
-  type SourceRequest, type TransportDependencies, type TransportResult, type WireResponse } from "./contracts.ts";
+  type SourcePermit, type SourceRequest, type TransportDependencies, type TransportResult, type WireResponse } from "./contracts.ts";
 
 class Lane {
   busy = false;
@@ -26,16 +26,6 @@ class Lane {
       if (next) next(); else this.busy = false;
     };
   }
-}
-
-function cooldown(header: string | undefined, now: number): number {
-  if (header && /^\d+$/.test(header.trim())) {
-    // Oversized valid delta-seconds never shorten the upstream waiting period.
-    return Math.min(Number.MAX_SAFE_INTEGER, now + Number(header.trim()) * 1000);
-  }
-  // Avoid Date.parse interpreting malformed numeric values (e.g. "1.5") as dates.
-  const date = header ? parseHttpDate(header) : NaN;
-  return Number.isFinite(date) && date > now ? date : now + limits.fallbackCooldownMs;
 }
 
 async function readHtml(response: WireResponse, signal: AbortSignal): Promise<string> {
@@ -72,6 +62,7 @@ export function createTransport(deps: TransportDependencies) {
   const check = (request: SourceRequest, url: URL) => {
     const decision = deps.authorize(request, url);
     if (!decision.allowed) throw new TransportFault(decision.code);
+    return decision.revision;
   };
   const wait = (ms: number, signal: AbortSignal) => new Promise<void>((resolve, reject) => {
     signal.throwIfAborted();
@@ -80,47 +71,70 @@ export function createTransport(deps: TransportDependencies) {
     signal.addEventListener("abort", abort, { once: true });
   });
   return async (input: SourceRequest, caller?: AbortSignal): Promise<TransportResult> => {
+    const started = deps.clock.now();
     const controller = new AbortController();
     const signal = controller.signal;
     const abort = () => controller.abort(new TransportFault("cancelled"));
     const cancelTimer = deps.clock.timer(limits.timeoutMs, () => controller.abort(new TransportFault("timeout")));
     if (caller?.aborted) abort(); else caller?.addEventListener("abort", abort, { once: true });
     let release: (() => void) | undefined;
+    let permit: SourcePermit | undefined;
+    let result: TransportResult;
+    let checked = false;
+    let policyRevision: string | undefined;
+    const checkPolicy = (request: SourceRequest, url: URL) => {
+      const current = check(request, url);
+      if (checked && current !== policyRevision) throw new TransportFault("policy_disabled");
+      policyRevision = current;
+      checked = true;
+    };
+    const active = () => {
+      if (deps.clock.now() - started >= limits.timeoutMs) controller.abort(new TransportFault("timeout"));
+      signal.throwIfAborted();
+    };
     try {
       // Snapshot caller-owned fields before the first await.
       const request = { ...input };
       let url = requestUrl(request);
-      signal.throwIfAborted();
-      check(request, url);
+      active();
+      checkPolicy(request, url);
+      if (deps.sampleKind === "live-capture" && !deps.coordinator) throw new TransportFault("policy_disabled");
       const lane = lanes[request.sourceId];
       const checkCooldown = () => {
         if (lane.cooldownUntil > deps.clock.now())
           throw new TransportFault("rate_limited", { retryAt: lane.cooldownUntil });
       };
       checkCooldown();
-      release = await lane.acquire(signal);
+      if (deps.coordinator) permit = await deps.coordinator.acquire(request.sourceId, signal, limits.timeoutMs - (deps.clock.now() - started));
+      else release = await lane.acquire(signal);
       const visited = new Set([url.href]);
+      let page: Extract<TransportResult, { ok: true }>["page"];
       for (let hop = 0; ; hop++) {
-        signal.throwIfAborted();
-        check(request, url);
+        active();
+        checkPolicy(request, url);
         checkCooldown();
-        if (lane.readyAt > deps.clock.now()) await wait(lane.readyAt - deps.clock.now(), signal);
-        signal.throwIfAborted();
-        check(request, url);
-        checkCooldown();
+        if (permit) await permit.beginAttempt(signal);
+        else if (lane.readyAt > deps.clock.now()) await wait(lane.readyAt - deps.clock.now(), signal);
         let response: WireResponse | undefined;
+        let completionKnown = true;
         try {
+          active(); checkPolicy(request, url); checkCooldown();
           const addresses = await abortable(deps.resolve(url.hostname, signal), signal);
           const address = selectAddress(addresses);
-          signal.throwIfAborted();
-          check(request, url);
+          if (permit) await permit.assertRunning(signal);
+          active();
+          checkPolicy(request, url);
           response = await abortable(deps.open(url, address, signal), signal, (late) => late.close());
-          signal.throwIfAborted();
           const status = response.status;
           if (status === 429) {
-            lane.cooldownUntil = Math.max(lane.cooldownUntil, cooldown(response.headers["retry-after"], deps.clock.now()));
+            // If persistence fails, leave the running reservation closed to new requests.
+            completionKnown = false;
+            lane.cooldownUntil = permit ? await permit.rateLimit(response.headers["retry-after"], signal)
+              : Math.max(lane.cooldownUntil, cooldownUntil(response.headers["retry-after"], deps.clock.now()));
+            completionKnown = true;
             throw new TransportFault("rate_limited", { httpStatus: status, retryAt: lane.cooldownUntil });
           }
+          active();
           if ([401, 403, 407, 451].includes(status)) throw new TransportFault("blocked", { httpStatus: status });
           if ([404, 410].includes(status)) throw new TransportFault("not_found", { httpStatus: status });
           if ([301, 302, 303, 307, 308].includes(status)) {
@@ -133,26 +147,35 @@ export function createTransport(deps: TransportDependencies) {
           }
           if (status !== 200) throw new TransportFault("http_error", { httpStatus: status });
           const html = await readHtml(response, signal);
-          signal.throwIfAborted();
-          check(request, url);
+          if (permit) await permit.assertRunning(signal);
+          active();
+          checkPolicy(request, url);
           const headers: Record<string, string> = { "content-type": response.headers["content-type"]! };
           for (const name of ["cache-control", "expires", "date", "age", "vary"])
             if (response.headers[name] !== undefined) headers[name] = response.headers[name];
-          return { ok: true, page: { sourceId: request.sourceId, kind: request.kind, url: url.href,
+          page = { sourceId: request.sourceId, kind: request.kind, url: url.href,
             status, headers, html,
-            capturedAt: new Date(deps.clock.now()).toISOString(), sampleKind: deps.sampleKind } };
+            capturedAt: new Date(deps.clock.now()).toISOString(), sampleKind: deps.sampleKind };
+          break;
         } finally {
           response?.close();
-          lane.readyAt = deps.clock.now() + limits.intervalMs;
+          if (permit) { if (completionKnown) await permit.endAttempt(signal); }
+          else lane.readyAt = deps.clock.now() + limits.intervalMs;
         }
       }
+      if (permit) { await permit.release(signal); permit = undefined; }
+      active(); checkPolicy(request, url);
+      result = { ok: true, page };
     } catch (error) {
       const failure: unknown = signal.aborted ? signal.reason : error;
-      return failure instanceof TransportFault ? failure.failure : { ok: false, code: "network_error" };
+      result = failure instanceof TransportFault ? failure.failure : { ok: false, code: "network_error" };
     } finally {
+      // Aborted callers return promptly; queued cleanup can only remove this owner's non-running row.
+      if (permit) await permit.release(signal).catch(() => {});
       release?.();
       cancelTimer();
       caller?.removeEventListener("abort", abort);
     }
+    return result;
   };
 }

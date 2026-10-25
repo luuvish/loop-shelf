@@ -1,18 +1,15 @@
-import { productAccess } from "./policies.ts";
+import { productTransportAccess } from "./review-policy.ts";
 import { createTransport } from "./transport/engine.ts";
 import { createNodeOpener, resolveSourceHost } from "./transport/node-driver.ts";
+import type Database from "better-sqlite3";
+import { createSqliteCoordinator } from "./transport/sqlite-coordinator.ts";
+import type { TransportDependencies } from "./transport/contracts.ts";
 
 export type { SourceRequest, TransportResult, TransportCode } from "./transport/contracts.ts";
 
-/** One process-wide scheduler. No per-request factory, policy override, or environment bypass. */
-export const captureSourcePage = createTransport({
-  authorize(request) {
-    const decision = productAccess(request.sourceId, request.kind);
-    if (!decision.allowed) return decision;
-    // A future activation also needs reviewed, current robots/path rules and source quotas.
-    // There is deliberately no permissive default while that contract is unimplemented.
-    return { allowed: false, code: "policy_disabled" };
-  },
+/** Fixed product policy/drivers. Database-bound instances share durable source reservations. */
+const dependencies: TransportDependencies = {
+  authorize: productTransportAccess,
   resolve: resolveSourceHost,
   open: createNodeOpener(),
   clock: {
@@ -20,4 +17,15 @@ export const captureSourcePage = createTransport({
     timer(ms, callback) { const timer = setTimeout(callback, ms); return () => clearTimeout(timer); },
   },
   sampleKind: "live-capture",
-});
+};
+// Unbound calls stay policy-disabled; product adapters always use the database-bound facade.
+export const captureSourcePage = createTransport(dependencies);
+const instances = new WeakMap<Database.Database, ReturnType<typeof createTransport>>();
+export function getSourceCapture(db: Database.Database): ReturnType<typeof createTransport> {
+  let capture = instances.get(db);
+  if (!capture) {
+    capture = createTransport({ ...dependencies, coordinator: createSqliteCoordinator(db) });
+    instances.set(db, capture);
+  }
+  return capture;
+}

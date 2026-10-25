@@ -394,3 +394,31 @@ dialog::backdrop { background: #152d2866; backdrop-filter: blur(3px); }
   .source-track-duration { grid-column: 2; text-align: left; }
   .source-album-dialog .dialog-actions { flex-wrap: wrap; }
 }
+
+.source-save-panel { padding: 20px; margin: 20px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.source-save-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.source-save-panel h3 { margin: 6px 0 12px; font-size: 20px; }
+.source-save-panel form { margin-top: 18px; }
+.source-save-confirm { padding: 16px; margin: 16px 0; border-left: 3px solid var(--green); background: #fff; overflow-wrap: anywhere; }
+.source-save-confirm p { font-size: 13px; line-height: 1.7; }
+.source-save-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.source-save-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.source-save-panel .text-button { white-space: normal; text-align: left; }
+@media (max-width: 700px) { .source-save-panel { padding: 14px; } .source-save-actions > button { flex: 1; } }
+
+.track-search-form { margin: 22px 0; }
+.track-search-form .browse-filter-row { margin-top: 12px; }
+.track-search-summary { margin: 24px 0 12px; }
+.track-search-summary h3 { margin-bottom: 8px; overflow-wrap: anywhere; }
+.track-search-entry { padding: 20px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
+.track-search-entry h4 { margin: 0 0 8px; font-size: 16px; overflow-wrap: anywhere; }
+.track-album-title { margin: 0 0 8px; overflow-wrap: anywhere; }
+.track-result-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.track-evidence { margin-top: 12px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.track-evidence summary { cursor: pointer; }
+.track-evidence p { margin: 8px 0; }
+@media (max-width: 600px) {
+  .track-search-entry { grid-template-columns: minmax(0, 1fr); }
+  .track-result-actions { flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .track-search-form .browse-filter-row { flex-wrap: wrap; }
+}

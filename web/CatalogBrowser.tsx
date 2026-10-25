@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { CatalogAlbumDetail, CatalogAlbumPage, CatalogCandidates, CatalogEntry } from "../src/shared/catalog-browse.ts";
 import type { CatalogLibraryItem } from "../src/shared/catalog-library.ts";
-import { catalogError, type CatalogApi } from "./api.ts";
+import { ApiError, catalogError, type CatalogApi } from "./api.ts";
 import { Dialog } from "./dialogs.tsx";
 import { SourceInfo, sourceNames, useTask } from "./catalog-ui.tsx";
 
@@ -18,21 +18,28 @@ function Pages({ offset, nextOffset, busy, onPage }: { offset: number; nextOffse
 }
 const disclosure = <p className="browse-disclosure">합성 검증 자료입니다. 실제 사이트를 검색하거나 음악을 재생하지 않습니다.</p>;
 
-export function CatalogBrowser({ api, onClose, onSaved }: { api: CatalogApi; onClose: () => void; onSaved: () => void }) {
+export interface CatalogInitialTrack { albumId: string; trackId: string; position: number }
+export function CatalogBrowser({ api, onClose, onSaved, initialTrack }: { api: CatalogApi; onClose: () => void; onSaved: () => void; initialTrack?: CatalogInitialTrack }) {
   const [query, setQuery] = useState({ q: "", source: "", offset: 0 }), [revision, setRevision] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null), [trackOffset, setTrackOffset] = useState(0);
+  const [selected, setSelected] = useState<string | null>(initialTrack?.albumId ?? null), [trackOffset, setTrackOffset] = useState(initialTrack ? Math.floor((initialTrack.position - 1) / 12) * 12 : 0);
+  const selectionChecked = useRef(false);
   const [page, setPage] = useState<CatalogAlbumPage | null>(null), [detail, setDetail] = useState<CatalogAlbumDetail | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(""), [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false), task = useTask(), content = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setLoadError(""); setPage(null); setDetail(null);
-    const read = selected ? api.album(selected, trackOffset, controller.signal).then((value) => { if (!controller.signal.aborted) setDetail(value); })
+    const read = selected ? api.album(selected, trackOffset, controller.signal).then((value) => {
+      if (controller.signal.aborted) return;
+      if (initialTrack && !selectionChecked.current && (value.album.entity.id !== initialTrack.albumId || !value.tracks.some((row) => row.entity.id === initialTrack.trackId)))
+        throw new ApiError(409, "selection_changed");
+      selectionChecked.current = true; setDetail(value);
+    })
       : api.browse(query.q, query.source, query.offset, controller.signal).then((value) => { if (!controller.signal.aborted) setPage(value); });
     void read.then(() => { if (!controller.signal.aborted) { setUncertain(false); task.setError(""); } })
       .catch((cause: unknown) => { if (!controller.signal.aborted) setLoadError(catalogError(cause)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [api, query, selected, trackOffset, revision, task.setError]);
+  }, [api, query, selected, trackOffset, revision, task.setError, initialTrack]);
   function focusContent() { requestAnimationFrame(() => content.current?.focus()); }
   function refresh() { setRevision((value) => value + 1); onSaved(); }
   function save(entry: CatalogEntry) {
@@ -48,7 +55,7 @@ export function CatalogBrowser({ api, onClose, onSaved }: { api: CatalogApi; onC
   const saveButton = (entry: CatalogEntry) => <button className="primary small" disabled={task.busy || loading || uncertain || !!entry.savedItemId} onClick={() => save(entry)}>{entry.savedItemId ? "저장됨" : entry.entity.kind === "album" ? "앨범 저장" : "곡 저장"}</button>;
   return <Dialog title={selected ? "카탈로그 앨범" : "카탈로그 둘러보기"} onClose={onClose} busy={task.busy}>
     {disclosure}
-    {selected ? <button className="text-button" disabled={task.busy} onClick={() => { setSelected(null); setTrackOffset(0); setNotice(""); focusContent(); }}>← 앨범 목록</button>
+    {initialTrack ? <button className="text-button" disabled={task.busy} onClick={onClose}>← 수록곡 검색</button> : selected ? <button className="text-button" disabled={task.busy} onClick={() => { setSelected(null); setTrackOffset(0); setNotice(""); focusContent(); }}>← 앨범 목록</button>
       : <BrowseFilters busy={task.busy} initialQuery={query} onSearch={(q, source) => { setQuery({ q, source, offset: 0 }); setNotice(""); }} />}
     <div ref={content} tabIndex={-1} className="browse-feedback">{notice && <p className="notice" role="status">{notice}</p>}{task.error && <p className="form-error" role="alert">{task.error}</p>}</div>
     {(uncertain || loadError) && <div className="error-box">{loadError && <p role="alert">{loadError}</p>}<button className="secondary small" disabled={task.busy || loading} onClick={() => { setNotice(""); refresh(); }}>최신 탐색 결과 확인</button></div>}
@@ -64,7 +71,7 @@ export function CatalogBrowser({ api, onClose, onSaved }: { api: CatalogApi; onC
       {detail.trackState === "not_loaded" ? <p className="field-help">상세 수록곡은 아직 수집하지 않았습니다. 앨범 정보만 저장할 수 있습니다.</p>
         : <>{detail.trackState === "review_required" && <p className="notice">변경 목록 검토 중입니다. 현재 채택된 수록곡을 표시합니다.</p>}
           {!detail.tracks.length && <p className="field-help">이 페이지에 표시할 수록곡이 없습니다.</p>}
-          <ol className="browse-list">{detail.tracks.map((entry) => <li key={entry.entity.id} className="browse-entry"><div><h4>{entry.entity.title}</h4><p className="field-help">순서 {entry.entity.position} · 표시 번호 {entry.displayNumber ?? "미확인"}{entry.discLabel ? ` · 디스크 ${entry.discLabel}` : ""} · {entry.entity.durationMs === null ? "길이 미확인" : `${Math.floor(entry.entity.durationMs / 60000)}:${String(Math.floor(entry.entity.durationMs / 1000) % 60).padStart(2, "0")}`}</p></div>{saveButton(entry)}</li>)}</ol>
+          <ol className="browse-list">{detail.tracks.map((entry) => <li key={entry.entity.id} className="browse-entry"><div>{entry.entity.id === initialTrack?.trackId && <span className="status-pill">검색에서 선택한 곡</span>}<h4>{entry.entity.title}</h4><p className="field-help">순서 {entry.entity.position} · 표시 번호 {entry.displayNumber ?? "미확인"}{entry.discLabel ? ` · 디스크 ${entry.discLabel}` : ""} · {entry.entity.durationMs === null ? "길이 미확인" : `${Math.floor(entry.entity.durationMs / 60000)}:${String(Math.floor(entry.entity.durationMs / 1000) % 60).padStart(2, "0")}`}</p></div>{saveButton(entry)}</li>)}</ol>
           <Pages offset={trackOffset} nextOffset={detail.nextOffset} busy={task.busy || uncertain} onPage={(offset) => { setTrackOffset(offset); focusContent(); }} />
         </>}
     </>}

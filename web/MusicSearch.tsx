@@ -47,9 +47,9 @@ function SourceResult({ source, synthetic, now, waitUntil, busy, onRetry, onOpen
   </section>;
 }
 
-export function MusicSearch({ user, suspended, onBookmark }: { user: User; suspended: boolean; onBookmark: () => void }) {
+export function MusicSearch({ user, suspended, onBookmark, onLibrary }: { user: User; suspended: boolean; onBookmark: () => void; onLibrary: () => void }) {
   const api = useMemo(() => searchApi(user), [user.id, user.sessionId]);
-  const blocked = useContext(ConnectionBlocked);
+  const blocked = useContext(ConnectionBlocked), sourceDraft = useRef(false);
   const [albumSelection, setAlbumSelection] = useState<SourceAlbumSelection | null>(null);
   const [q, setQ] = useState(""), [selected, setSelected] = useState<SourceId[]>([]);
   const [result, setResult] = useState<SearchResponse | null>(null), [last, setLast] = useState<SearchQuery | null>(null);
@@ -58,7 +58,7 @@ export function MusicSearch({ user, suspended, onBookmark }: { user: User; suspe
   const controller = useRef<AbortController | null>(null), sequence = useRef(0), heading = useRef<HTMLHeadingElement>(null);
   const feedback = useRef<HTMLDivElement>(null);
   function cancel() { sequence.current++; controller.current?.abort(); controller.current = null; setBusy(false); }
-  function clear() { setAlbumSelection(null); cancel(); setResult(null); setLast(null); setError(""); setNotice(""); }
+  function clear() { sourceDraft.current = false; setAlbumSelection(null); cancel(); setResult(null); setLast(null); setError(""); setNotice(""); }
   useEffect(() => {
     heading.current?.focus();
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -70,7 +70,7 @@ export function MusicSearch({ user, suspended, onBookmark }: { user: User; suspe
       window.removeEventListener("focus", leave); document.removeEventListener("visibilitychange", hidden); };
   }, []);
   useEffect(() => {
-    if (blocked || suspended) { clear(); setNotice("연결과 로그인을 확인한 뒤 직접 다시 검색해 주세요."); }
+    if (blocked || suspended) { if (suspended || !sourceDraft.current) clear(); else { cancel(); setResult(null); setLast(null); setError(""); } setNotice("연결과 로그인을 확인한 뒤 직접 다시 검색해 주세요."); }
     if (suspended) { setQ(""); setSelected([]); }
   }, [blocked, suspended]);
   const waitUntil = Math.max(retryAt, ...selected.map((id) => cooldowns[id] ?? 0));
@@ -107,12 +107,12 @@ export function MusicSearch({ user, suspended, onBookmark }: { user: User; suspe
     setAlbumSelection((current) => current ?? { ref: { sourceId: album.sourceId, externalKey: album.externalKey, pageUrl: album.pageUrl }, sampleKind: result.sampleKind });
   }
   function invalidateSearch() { setResult(null); setLast(null); setNotice("출처 상태가 바뀌어 이전 검색 자료를 지웠습니다. 검색을 다시 실행해 주세요."); }
-  function closeAlbum() { setAlbumSelection(null); if (!result) requestAnimationFrame(() => heading.current?.focus()); }
+  function closeAlbum() { sourceDraft.current = false; setAlbumSelection(null); if (!result) requestAnimationFrame(() => heading.current?.focus()); }
   function submit(event: FormEvent) { event.preventDefault(); void run({ q: q.trim(), sources: selected, limit: 12, offset: 0 }); }
   const seconds = Math.max(0, Math.ceil((waitUntil - now) / 1000));
   return <div className="music-search">
     {albumSelection && <SourceAlbum user={user} selection={albumSelection} now={now} waitUntil={Math.max(retryAt, cooldowns[albumSelection.ref.sourceId] ?? 0)}
-      onInvalidate={invalidateSearch} onClose={closeAlbum} onLimited={(until, scope) => {
+      onInvalidate={invalidateSearch} onClose={closeAlbum} onLibrary={onLibrary} onDraftChange={(present) => { sourceDraft.current = present; }} onLimited={(until, scope) => {
         if (scope === "http") setRetryAt((previous) => Math.max(previous, until));
         else setCooldowns((previous) => ({ ...previous, [albumSelection.ref.sourceId]: Math.max(previous[albumSelection.ref.sourceId] ?? 0, until) }));
       }} />}
@@ -145,7 +145,7 @@ export function MusicSearch({ user, suspended, onBookmark }: { user: User; suspe
       </section>
       {result.sources.length ? result.sources.map((source) => <SourceResult key={source.sourceId} source={source} synthetic={result.sampleKind === "synthetic"} now={now} waitUntil={Math.max(retryAt, cooldowns[source.sourceId] ?? 0)} busy={busy} onOpen={openAlbum} onRetry={() => { void run({ q: result.query, sources: [source.sourceId], limit: 12, offset: 0 }); }} />)
         : <p className="field-help">외부 소스는 요청하지 않았습니다.</p>}
-      <p className="search-footnote">다시 검색하면 해당 출처와 로컬 자료를 새로 확인합니다. 원문 열기는 청취 기록을 만들지 않습니다. 검색 결과의 직접 저장과 앱 내 재생은 아직 지원하지 않습니다.</p>
+      <p className="search-footnote">다시 검색하면 해당 출처와 로컬 자료를 새로 확인합니다. 원문 열기는 청취 기록을 만들지 않습니다. 앨범 상세에서 저장 가능 여부를 확인할 수 있습니다. 앱 내 재생은 아직 지원하지 않습니다.</p>
     </section>}
     {!result && !busy && !error && !notice && <div className="search-start"><Icon name="search" /><h2>어떤 음악을 찾고 있나요?</h2><p>앨범 이름을 입력해 조회를 시작하세요.<br />결과와 초안은 이 화면에서만 유지됩니다.</p></div>}
   </div>;

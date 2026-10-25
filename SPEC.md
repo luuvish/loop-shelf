@@ -1,6 +1,6 @@
 # LoopShelf 기능 및 데이터 모델 명세
 
-상태: **개인 북마크·PWA·합성 카탈로그·개인 이식 구현, 소스 Adapter·SQLite 캐시·통합 검색 API/화면·소스 앨범 상세 서비스/API 검증 완료. 실제 자동 수집은 비활성** · 기준일: 2026-10-24
+상태: **개인 북마크·PWA·합성 카탈로그·개인 이식 구현, 소스 Adapter·SQLite 캐시·통합 검색 API/화면·소스 앨범 상세/저장 API·React 확인 화면 검증 완료. 실제 자동 수집은 비활성** · 기준일: 2026-10-25
 
 ## 제품 범위
 
@@ -27,7 +27,9 @@
 
 ## 다음 단계로 분리할 기능
 
-전송 계층과 검색/상세 Adapter·SQLite 메타데이터 캐시를 연결했습니다. 정상 0건·부분 결과·실패·stale을 구분하며 정책/파서 버전·만료·제거와 동일 요청의 취소 소유권을 확인합니다. 내부 통합 검색 서비스는 로컬/소스별 결과와 provenance를 구분하고 12초 예산·취소·최종 정책/만료/제거 검사를 수행합니다. 합성 검증 결과이며 제품의 두 소스는 `policy_disabled`입니다. 제품 live 검색에는 합성 카탈로그를 섞지 않고 로컬 `sample_kind_unavailable`을 명시합니다. 인증된 검색 HTTP API는 최초/최종 세션 확인·요청 제한·연결 취소까지 검증했습니다. React 검색 화면은 출처별 상태·수동 재시도·취소·응답 세션/현재 쿠키 재확인까지 연결했습니다. 정상/부분/캐시 성공 화면은 합성 브라우저 응답으로 검증했습니다. [화면 계약](docs/SEARCH_UI.md) 소스 상세 조회 서비스·인증 API도 연결했으며 반복 트랙 번호·근거·캐시/실패·최종 인증/정책/제거 검사를 합성 자료와 실제 임시 세션으로 검증했습니다. [상세 계약](docs/SOURCE_ALBUM.md) React 상세 화면도 검색 결과의 명시적 선택과 연결했습니다. 상세 제목/원문 주장·반복 번호·미확인 길이·20곡 페이지·캐시/실패·취소/만료·세션/자료 종류 검증과 공통 대기 시간을 유지합니다. [상세 화면](docs/SOURCE_ALBUM_UI.md) 후속 저장 입력·별도 보관 정책·선택 관찰 조건과 원자적 적재/개인 저장 내부 흐름도 합성 자료·실제 임시 세션으로 검증했습니다. 실제 자료는 storage gate와 합성 SQL 경계에서 계속 거절하고 저장 HTTP/UI는 추가하지 않았습니다. [저장 계약](docs/SOURCE_SAVE.md) live 카탈로그 적재와 실제 연동은 남아 있으며 robots/path·허용 범위와 보관 기간의 별도 검토가 필요합니다. [Adapter·캐시 계약](docs/SOURCE_ADAPTERS.md) · [통합 검색 계약](docs/SEARCH_SERVICE.md) · [인증된 검색 API](docs/SEARCH_API.md)
+0017에서 같은 로컬 SQLite 파일의 여러 연결/프로세스가 소스별 요청 간격·429 대기·최대 8개 대기열을 공유하도록 했습니다. 실행 전 예약은 만료할 수 있지만 실행 중 요청은 기한만으로 자동 해제하지 않습니다. 실제 종료·대기 저장 또는 운영자의 전체 worker 중지/대기 검토가 필요합니다. DB 대기 중 취소·오류 뒤 보류·재시작/강제 종료·백업/복원을 합성 응답과 분리 프로세스로 검증합니다. 제품 수집 허가·robots/path·공식 quota·다른 설치/호스트의 공통 제한은 별도입니다. [소스 요청 조정 계약](docs/SOURCE_COORDINATION.md)
+
+전송 계층과 검색/상세 Adapter·SQLite 메타데이터 캐시를 연결했습니다. 정상 0건·부분 결과·실패·stale을 구분하며 정책/파서 버전·만료·제거와 동일 요청의 취소 소유권을 확인합니다. 내부 통합 검색 서비스는 로컬/소스별 결과와 provenance를 구분하고 12초 예산·취소·최종 정책/만료/제거 검사를 수행합니다. 합성 검증 결과이며 제품의 두 소스는 `policy_disabled`입니다. 제품 live 검색에는 합성 카탈로그를 섞지 않고 로컬 `sample_kind_unavailable`을 명시합니다. 인증된 검색 HTTP API는 최초/최종 세션 확인·요청 제한·연결 취소까지 검증했습니다. React 검색 화면은 출처별 상태·수동 재시도·취소·응답 세션/현재 쿠키 재확인까지 연결했습니다. 정상/부분/캐시 성공 화면은 합성 브라우저 응답으로 검증했습니다. [화면 계약](docs/SEARCH_UI.md) 소스 상세 조회 서비스·인증 API도 연결했으며 반복 트랙 번호·근거·캐시/실패·최종 인증/정책/제거 검사를 합성 자료와 실제 임시 세션으로 검증했습니다. [상세 계약](docs/SOURCE_ALBUM.md) React 상세 화면도 검색 결과의 명시적 선택과 연결했습니다. 상세 제목/원문 주장·반복 번호·미확인 길이·20곡 페이지·캐시/실패·취소/만료·세션/자료 종류 검증과 공통 대기 시간을 유지합니다. [상세 화면](docs/SOURCE_ALBUM_UI.md) 후속 저장 입력·별도 보관 정책·선택 관찰 조건과 원자적 적재/개인 저장 내부 흐름도 합성 자료·실제 임시 세션으로 검증했습니다. 실제 자료는 storage gate와 합성 SQL 경계에서 계속 거절하고 저장 HTTP와 React 확인 화면을 연결하고 합성 성공·실제 쿠키 세션으로 검증했습니다. [저장 화면 계약](docs/SOURCE_SAVE_UI.md) [저장 계약](docs/SOURCE_SAVE.md) live 카탈로그 적재와 실제 연동은 남아 있으며 robots/path·허용 범위와 보관 기간의 별도 검토가 필요합니다. [Adapter·캐시 계약](docs/SOURCE_ADAPTERS.md) · [통합 검색 계약](docs/SEARCH_SERVICE.md) · [인증된 검색 API](docs/SEARCH_API.md)
 
 - 앱 내 스트리밍, 재생 큐, 기본 플레이리스트와 순서 편집, Media Session.
 - 실제 앱 재생을 확인한 청취 이력. 외부 사이트 열기 이력과 별도 관리.
@@ -35,6 +37,8 @@
 - 오프라인 개인 라이브러리 열람/동기화, 고급 추천·유사곡·자동 식별.
 - 칩 음악 에뮬레이션, 서버 트랜스코딩, 오디오 다운로드/보관은 첫 플레이어 확장에도 기본 제외.
 - Decl은 저장소와 분리된 실험으로 검토. MVP의 데이터 영속성·검색에 필수로 넣지 않음.
+
+소스 접근 검토는 source/기능·자료 종류·현재 정책 버전·정확한 URL/쿼리·기한에 묶습니다. robots 수동 결론·명시적 수집 허가·공식 quota는 독립 검사이며, 현재 집행할 수 없는 기간별/공통 그룹 제한은 거절합니다. 검토 만료·철회·교체가 대기나 본문 읽기 중 발생하면 결과를 반환하지 않습니다. 캐시·표시·공용 보관은 별도 권한 주장으로 기록하되 실제 활성화/수명 반영은 후속입니다. 실제 사이트 근거나 자동 robots 해석을 추가하지 않았습니다. [범위와 계약](docs/SOURCE_ACCESS_REVIEW.md)
 
 ## 사용자 흐름
 
@@ -92,7 +96,7 @@ Entity는 Game/Album/Track/Recording/Work/Bookmark 등 도메인 항목의 공�
 | --- | --- | --- |
 | 공통 ID | Entity: id, kind, createdAt, lifecycle | 내부 UUID 유지. 외부 URL을 기본 키로 쓰지 않음 |
 | 카탈로그 | Album: title, kind, releaseDate, datePrecision, catalogNumber | 발매판 단위. gamerip은 정식 발매와 구분. 미확인 값은 null |
-| 수록곡 | Track: albumId, recordingId?, position, discLabel?, trackLabel?, title, durationMs? | position은 정렬 값. 표시 번호는 반복 가능. 시간 미상과 0초 구분 |
+| 수록곡 | Track: albumId, recordingId?, position, discLabel?, trackLabel?, title, durationMs? | position은 내부 할당 순번, 현재 순서는 binding에서 조회. 표시 번호는 반복 가능. 시간 미상과 0초 구분 |
 | 음악 관계 | Game, GameRelease, MusicalWork, Recording, 관계 테이블 | 최소 메타데이터만 있으면 source-derived/provisional 상태 허용 |
 | 출처 | SourceEntity: sourceId, externalKind, externalKey, entityId?, pageUrl, fetchedAt, parserVersion, availability | `(sourceId, externalKind, externalKey)` 유일. URL 변경 이력 별도 유지 |
 | 메타데이터 근거 | Assertion: entityId, field/relation, value, sourceEntityId, observedAt, confidence, method | 원본 주장과 채택한 표시값 구분. 사용자 메모를 수집기로 덮어쓰지 않음 |
@@ -146,7 +150,9 @@ Entity를 참조하는 외래 키에 더해 실제 subtype 일치와 개인 엔�
 
 ### 구현한 카탈로그 성능 검증
 
-합성 1만 앨범·10만 트랙과 개인 저장 5천 개에서 목록·검색·현재 수록곡·출처 후보·개인 검색을 측정했습니다. M1 Ultra, 예열된 캐시, 직렬 요청과 30개 표본의 24개 사례에서 p95 300ms 목표를 충족했습니다. 현재 최대 p95는 73.305ms입니다. 조회 범위를 앨범과 현재 관찰별 binding으로 좁히되 NFKC 리터럴 검색·현재 제목·정렬·제거/차단·개인 소유권 계약을 유지합니다. 실제 네트워크·동시 사용자·전역 트랙 검색의 성능 보장은 아닙니다. [재현과 근거](docs/CATALOG_PERFORMANCE.md)
+합성 1만 앨범·10만 트랙과 개인 저장 5천 개에서 목록·검색·현재 수록곡·출처 후보·개인 검색을 측정했습니다. M1 Ultra, 예열된 캐시, 직렬 요청과 30개 표본의 24개 사례에서 p95 300ms 목표를 충족했습니다. 초기 24개 사례의 최대 p95는 73.305ms였습니다. 새 전역 수록곡 검색의 측정과 깊은 페이지 제한은 성능 문서의 0014 절에 별도로 기록합니다. 조회 범위를 앨범과 현재 관찰별 binding으로 좁히되 NFKC 리터럴 검색·현재 제목·정렬·제거/차단·개인 소유권 계약을 유지합니다. 실제 네트워크·동시 사용자·전역 트랙 검색의 성능 보장은 아닙니다. [재현과 근거](docs/CATALOG_PERFORMANCE.md)
+
+동시 요청은 `bench:concurrency`로 한 프로세스/연결과 두 실제 계정의 6종 혼합 부하를 측정합니다. 0015 당시 여섯 제목/차단/커서 분포의 108조합이 p95 300ms 이내였으며 [당시 결과](docs/CATALOG_SEARCH_PROFILES.md)를 보존합니다. 0016은 현재 검색 순서와 페이지 근거 재검사를 사용해 offset 99,900의 서비스 p95를 1,215.498→18.214ms로 줄였고 순차 42개 모두 목표 이내입니다. 후보 조회는 limit+1행 또는 남은 원시 후보 전체를 검사했다는 증명이 있을 때만 사용하며 그 외에는 전체 조회로 돌아갑니다. 현재 제목/binding·권한·보관 계약을 유지하고 유지보수 비용도 기록합니다. [현재 구조·결과](docs/CATALOG_OFFSET_SEARCH.md) 로컬 inject 결과를 원격 배포 보장으로 보지 않습니다. [측정 계약](docs/CATALOG_CONCURRENCY.md)
 
 ### 구현한 JSON 이식
 
@@ -218,4 +224,8 @@ manifest와 앱 아이콘, 공개 정적 앱 셸과 연결 안내를 구현했�
 
 ## 소스 앨범 저장 확인·HTTP 범위
 
-`POST /api/source-album`의 `save`는 최종 세션/상세 검사 뒤 저장 가능 여부와 정확한 관찰의 fingerprint·유효 기한을 제공합니다. `POST /api/source-album/save`는 sourceId/externalKey/expectedFingerprint와 개인 필드만 받고 32 KiB·Origin·필수 실제 세션·검색/상세와 공통 분당 30회/동시 16개·12초 예산을 적용합니다. commit 직전 인증/정책/기한 재검사와 원자적 저장, 최초 201/중복 200·개인 내용 보존·트랙 검토 보류를 검증했습니다. 제품 live 정책은 닫혀 있으며 React 저장 UI는 후속입니다. [요청·오류·재시도 계약](docs/SOURCE_SAVE_API.md)
+`POST /api/source-album`의 `save`는 최종 세션/상세 검사 뒤 저장 가능 여부와 정확한 관찰의 fingerprint·유효 기한을 제공합니다. `POST /api/source-album/save`는 sourceId/externalKey/expectedFingerprint와 개인 필드만 받고 32 KiB·Origin·필수 실제 세션·검색/상세와 공통 분당 30회/동시 16개·12초 예산을 적용합니다. commit 직전 인증/정책/기한 재검사와 원자적 저장, 최초 201/중복 200·개인 내용 보존·트랙 검토 보류를 검증했습니다. 제품 live 정책은 닫혀 있으며 React 상세에서 개인 입력·명시적 확인과 응답 유실 후 선반/상세 재조회까지 연결했습니다. 성공·실패 응답 모두 현재 쿠키 세션을 재검사하고 오프라인 초안은 메모리로만 유지합니다. [화면 계약](docs/SOURCE_SAVE_UI.md) [요청·오류·재시도 계약](docs/SOURCE_SAVE_API.md)
+
+## 현재 수록곡 로컬 검색 API
+
+`GET /api/catalog/tracks`는 관리 중인 합성 카탈로그의 현재 채택된 곡 제목만 NFKC 리터럴 부분 검색합니다. 한글/일본어 1–2자도 같은 의미이며 빈/제어 문자 검색어는 거절합니다. 제목·source·앨범 키·현재 위치·UUID 순 정렬과 제한된 페이지, 관찰 근거·미확인 길이/반복 번호를 유지합니다. 다른 관찰을 근거로 하는 앨범 제목과 곡 목록을 구분하고, 개인 정보·누락/제거/만료·실제 자료를 섞지 않습니다. 필수 실제 세션 조건과 no-store를 사용합니다. 0014 제목 인덱스와 0016 현재 검색 목록은 개인 내용/ID를 바꾸지 않습니다. 동일한 검색 조건의 `nextCursor`로 현재 정렬값 다음부터 이어 읽으며 기준 곡이 제거/만료/재채택되면 409로 새 검색을 요구합니다. 호환 offset 조회는 선택된 페이지의 원본 근거를 재검사하며 불일치를 정상 빈 결과로 숨기지 않습니다. React 화면은 커서 이동과 현재 앨범/곡 저장을 연결합니다. 검색 결과는 메모리로만 유지하고 만료/세션 변경/취소 뒤 재노출하지 않습니다. [화면 계약](docs/CATALOG_TRACK_UI.md) [입력·응답·검증 계약](docs/CATALOG_TRACK_SEARCH.md)

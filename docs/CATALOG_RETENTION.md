@@ -1,6 +1,6 @@
 # 카탈로그 자료 종류와 보관 수명
 
-기준일: **2026-10-24**. `0012_catalog_retention.sql`과 `src/catalog/retention.ts`는 자료 종류 격리·보관 만료·정책 철회의 저장 모델입니다. 실행 검증에는 합성 DTO, 임시 SQLite와 로컬 브라우저 계정만 사용했습니다. **제품 live 수집/저장은 여전히 비활성입니다.** 저장 HTTP는 [별도 합성 검증](SOURCE_SAVE_API.md)으로 연결했으며 React 저장 UI는 후속입니다. 2026-10-25에 개인 DTO/JSON v2와 내부 저장의 수명 연결을 추가했습니다. 공용 탐색/live 활성화는 후속이며 [현재 종류 계약](CATALOG_KINDS.md)을 따릅니다.
+기준일: **2026-10-24**. `0012_catalog_retention.sql`과 `src/catalog/retention.ts`는 자료 종류 격리·보관 만료·정책 철회의 저장 모델입니다. 실행 검증에는 합성 DTO, 임시 SQLite와 로컬 브라우저 계정만 사용했습니다. **제품 live 수집/저장은 여전히 비활성입니다.** 저장 HTTP는 [별도 합성 검증](SOURCE_SAVE_API.md)으로 연결했으며 [React 저장 확인 UI](SOURCE_SAVE_UI.md)도 합성 자료로 검증합니다. 2026-10-25에 개인 DTO/JSON v2와 내부 저장의 수명 연결을 추가했습니다. 공용 탐색/live 활성화는 후속이며 [현재 종류 계약](CATALOG_KINDS.md)을 따릅니다.
 
 ## 자료 종류와 관찰 수명
 
@@ -53,4 +53,4 @@ Album/Track/SourceEntity/개인 저장 UUID, 메모, 즐겨찾기, title overrid
 
 보관 검사 비용은 `npm run bench:retention`으로, 전체 탐색은 `npm run bench:catalog`로 재현합니다. 부분 인덱스는 active lease만 포함하며 종류/기한 조건으로 조회합니다. 자료 분포·환경·원시 표본과 실행 계획은 [성능 문서](CATALOG_PERFORMANCE.md)에 기록합니다.
 
-개인 DTO/JSON v2·내부 저장의 승인 수명 전달은 [후속 종류 계약](CATALOG_KINDS.md)으로 확장했습니다. 제품 live guard와 실제 사이트 정책은 닫힌 상태를 유지합니다. 다음은 저장 선택 확인과 인증된 저장 HTTP API이며, 활성화에는 별도 공용 live 경계·허용 근거·실사이트 검증이 필요합니다.
+개인 DTO/JSON v2·내부 저장의 승인 수명 전달은 [후속 종류 계약](CATALOG_KINDS.md)으로 확장했습니다. 제품 live guard와 실제 사이트 정책은 닫힌 상태를 유지합니다. 저장 선택 확인·인증된 저장 HTTP API·React 확인 화면을 연결했으며, 활성화에는 별도 공용 live 경계·허용 근거·실사이트 검증이 필요합니다.

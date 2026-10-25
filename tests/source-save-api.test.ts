@@ -299,3 +299,39 @@ test("an explicitly confirmed changed track list preserves existing Track IDs an
   assert.equal(second.statusCode, 200); assert.equal(second.json().trackState, "review_required");
   assert.equal(second.json().item.id, first.json().item.id); assert.deepEqual(h.db.prepare("SELECT id FROM track ORDER BY position").all(), before);
 });
+
+test("saved-origin lookup requires an actual session and rejects unsafe or extra query fields", async (t) => {
+  const h = await fixture(t), url = `/api/library/catalog/source-save?${new URLSearchParams(input)}`;
+  assert.equal((await h.app.inject({ url, headers: base })).statusCode, 401);
+  const { "x-loopshelf-session": ignored, ...missing } = h.own; void ignored;
+  assert.equal((await h.app.inject({ url, headers: missing })).statusCode, 428);
+  assert.equal((await h.app.inject({ url, headers: { ...h.other, "x-loopshelf-session": h.own["x-loopshelf-session"] } })).statusCode, 401);
+  for (const query of ["", "sourceId=zophar&externalKey=../bad", `${new URLSearchParams(input)}&userId=${h.bob.id}`])
+    assert.equal((await h.app.inject({ url: `/api/library/catalog/source-save?${query}`, headers: h.own })).statusCode, 400);
+  const empty = await h.app.inject({ url, headers: h.own }); assert.deepEqual(empty.json(), { item: null }); noStore(empty);
+  assert.equal(empty.headers["x-loopshelf-session"], h.own["x-loopshelf-session"]); h.empty();
+});
+
+test("saved-origin lookup returns only the current user's exact original album and survives content removal", async (t) => {
+  const h = await fixture(t); h.enable(); const first = await h.save(h.own, { ...h.request(), note: "kept private" });
+  const url = `/api/library/catalog/source-save?${new URLSearchParams(input)}`;
+  const own = await h.app.inject({ url, headers: h.own }); assert.deepEqual(own.json().item, first.json().item);
+  assert.deepEqual((await h.app.inject({ url, headers: h.other })).json(), { item: null });
+  assert.deepEqual((await h.app.inject({ url: `${url}-other`, headers: h.own })).json(), { item: null });
+  await new CatalogStore(h.db).removeSource({ sourceEntityId: first.json().item.entity.sourceEntityId, reason: "rights_request" });
+  const removed = (await h.app.inject({ url, headers: h.own })).json().item; assert.equal(removed.id, first.json().item.id);
+  assert.equal(removed.entity.contentState, "removed"); assert.equal(removed.note, "kept private");
+});
+
+test("saved-origin lookup never relinks an imported unresolved same-key reference", async (t) => {
+  const h = await fixture(t); h.enable(); const first = (await h.save()).json().item;
+  const { CatalogTransfer } = await import("../src/library/catalog-transfer.ts");
+  const { randomUUID } = await import("node:crypto");
+  const transfer = new CatalogTransfer(h.db, config.secret), archive = transfer.export(h.alice.id);
+  new CatalogLibraryStore(h.db).delete(h.alice.id, first.id, { version: first.version });
+  const item = archive.items[0]!; item.id = randomUUID(); item.reference.entityId = randomUUID(); item.reference.albumId = item.reference.entityId; item.reference.source.id = randomUUID();
+  transfer.import(h.alice.id, archive, transfer.preview(h.alice.id, archive).token!);
+  const url = `/api/library/catalog/source-save?${new URLSearchParams(input)}`;
+  assert.deepEqual((await h.app.inject({ url, headers: h.own })).json(), { item: null });
+  assert.equal(new CatalogLibraryStore(h.db).get(h.alice.id, item.id).entity.contentState, "unresolved");
+});

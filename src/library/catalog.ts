@@ -1,3 +1,4 @@
+import { parseSourceAlbumInput } from "../source-album/input.ts";
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import { z } from "zod";
@@ -58,6 +59,18 @@ export class CatalogLibraryStore {
       if (!row) throw new CatalogLibraryError("not_found", "Saved catalog item not found");
       return this.view(userId, row);
     }).deferred();
+  }
+  /** Exact managed origin only. No title/URL matching, added-link lookup or detached-reference relinking. */
+  savedSourceAlbum(userId: string, input: unknown): { item: CatalogLibraryItem | null } {
+    const ref = parseSourceAlbumInput(input);
+    reconcileCatalogRetention(this.db);
+    const origin = this.db.prepare(`SELECT a.id FROM source_entity s JOIN album a ON a.id=s.entity_id
+      JOIN catalog_source_kind sk ON sk.source_entity_id=s.id
+      WHERE s.source_id=? AND s.external_kind='album' AND s.external_key=?`).get(ref.sourceId, ref.externalKey) as { id: string } | undefined;
+    if (!origin) return { item: null };
+    const saved = this.db.prepare(`SELECT id FROM library_item WHERE user_id=? AND entity_id=? UNION ALL
+      SELECT id FROM catalog_detached_item WHERE user_id=? AND entity_id=?`).get(userId, origin.id, userId, origin.id) as { id: string } | undefined;
+    return { item: saved ? this.get(userId, saved.id) : null };
   }
   list(userId: string, input: unknown = {}): CatalogLibraryPage {
     reconcileCatalogRetention(this.db);

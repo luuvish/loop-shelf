@@ -7,6 +7,8 @@ import { openDatabase } from "../../src/database/connection.ts";
 import { migrate } from "../../src/database/migrate.ts";
 import { createAccount } from "../../src/auth/accounts.ts";
 import { buildApp } from "../../src/server/app.ts";
+import { installSourceSaveFixture } from "./source-save-fixture.ts";
+import { installTrackSearchFixture } from "./track-search-fixture.ts";
 import { seedCatalog } from "./catalog-fixture.ts";
 import { registerWeb } from "../../src/server/web.ts";
 
@@ -15,7 +17,9 @@ const pwa = process.argv.includes("--pwa");
 const catalogViewport = process.argv.includes("--catalog-desktop") ? "desktop" : process.argv.includes("--catalog-mobile") ? "mobile" : null;
 const searchViewport = process.argv.includes("--search-desktop") ? "desktop" : process.argv.includes("--search-mobile") ? "mobile" : null;
 const albumViewport = process.argv.includes("--album-desktop") ? "desktop" : process.argv.includes("--album-mobile") ? "mobile" : null;
-const port = albumViewport === "desktop" ? 4195 : albumViewport === "mobile" ? 4196 : searchViewport === "desktop" ? 4193 : searchViewport === "mobile" ? 4194 : catalogViewport === "desktop" ? 4191 : catalogViewport === "mobile" ? 4192 : development ? 4188 : pwa ? 4189 : 4187;
+const saveViewport = process.argv.includes("--save-desktop") ? "desktop" : process.argv.includes("--save-mobile") ? "mobile" : null;
+const trackViewport = process.argv.includes("--track-desktop") ? "desktop" : process.argv.includes("--track-mobile") ? "mobile" : null;
+const port = trackViewport === "desktop" ? 4199 : trackViewport === "mobile" ? 4200 : saveViewport === "desktop" ? 4197 : saveViewport === "mobile" ? 4198 : albumViewport === "desktop" ? 4195 : albumViewport === "mobile" ? 4196 : searchViewport === "desktop" ? 4193 : searchViewport === "mobile" ? 4194 : catalogViewport === "desktop" ? 4191 : catalogViewport === "mobile" ? 4192 : development ? 4188 : pwa ? 4189 : 4187;
 const directory = mkdtempSync(join(tmpdir(), "loopshelf-browser-"));
 const db = openDatabase(join(directory, "test.sqlite"));
 process.once("exit", () => { if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
@@ -31,6 +35,8 @@ async function build() {
     }
   }
   const server = await buildApp(db, config);
+  if (saveViewport) await installSourceSaveFixture(db, config);
+  if (trackViewport) await installTrackSearchFixture(db, server);
   if (pwa) {
     const original = readFileSync(new URL("../../dist/sw.js", import.meta.url), "utf8");
     let variant = "base";

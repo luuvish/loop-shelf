@@ -6,6 +6,8 @@
 
 `getSourceAdapters(db)`는 연결별 공용 Adapter를 반환합니다. 소스마다 `capabilities()`, `searchAlbums(query, signal?)`, `getAlbum(externalKey, signal?)`가 있습니다. 요청 주소·취소·DNS/IP·429 제한은 [전송 계약](SOURCE_TRANSPORT.md)을 사용합니다. 임의 URL, 사용자 ID·인증 헤더, 정책 우회 옵션은 받지 않습니다.
 
+0017 이후 전송은 같은 DB에 묶인 `getSourceCapture(db)`를 사용해 요청 간격·429·예약을 다른 연결/프로세스와 공유합니다. 캐시/개인 테이블 경계와 별도인 운영 상태이며 네트워크를 기다리는 동안 DB를 잠그지 않습니다. 현재 제품 정책은 예약 전에 거절합니다. [영속 조정과 복구](SOURCE_COORDINATION.md)
+
 KHInsider의 상세 파서는 미지원입니다. capabilities에서 파서 지원, 표본 기술 상태, 정책 상태를 각각 표시합니다. 허용된 합성 계약에서 상세는 전송 없이 `unsupported`, 실제 제품에서는 우선 `policy_disabled`입니다. 페이지네이션은 미확인이고 발견한 다음 링크를 자동으로 취득하지 않습니다. 재생은 계속 `unsupported`/`unverified`입니다.
 
 성공은 기존 `data / provenance / warnings`와 `delivery`를 반환합니다. `delivery.from`은 `transport` 또는 `cache`, `freshness`는 `fresh` 또는 `stale`이며 `freshUntil / expiresAt`을 포함합니다. 파서의 현재 페이지 보고 개수·추출 개수·부분 결과·미확인 상한을 유지합니다. `transport` 성공이 캐시 저장을 보장하지는 않습니다. 정책이나 응답 헤더가 저장을 금지하면 해당 응답만 반환합니다.
@@ -18,7 +20,7 @@ KHInsider의 상세 파서는 미지원입니다. capabilities에서 파서 지�
 
 수집·캐시·표시 정책은 별도입니다. 표시가 비활성이면 캐시 제공·수집을 중단하고 해당 소스 캐시를 정리합니다. 캐시만 비활성이면 기존 캐시를 정리하되 수집/표시가 각각 허용된 현재 응답은 저장 없이 반환할 수 있습니다. 아직 fresh인 캐시는 같은 검토 버전에서 수집이 일시 차단되어도 캐시/표시 허용 여부를 따릅니다.
 
-정책·기술 판단의 변경은 revision에 반영해야 합니다. 제품은 해당 소스 assessment 전체의 해시를 사용합니다. revision이 달라지면 과거 캐시를 fresh/stale 어느 쪽으로도 재사용하지 않습니다. 처리 도중 revision이 달라진 요청도 저장하지 않습니다. 표시/캐시 금지 정리는 요청 시 수행하며, 배포 시 정책 변경 전수 정리 작업은 아직 서버 시작/운영 UI에 연결하지 않았습니다.
+정책·기술 판단의 변경은 revision에 반영해야 합니다. 제품은 해당 소스 assessment와 접근 검토 버전/목록을 포함한 해시를 사용합니다. [접근 검토](SOURCE_ACCESS_REVIEW.md)의 보관/표시 주장은 진단용이며 현재 캐시/표시 unknown을 자동으로 허용하거나 TTL을 변경하지 않습니다. revision이 달라지면 과거 캐시를 fresh/stale 어느 쪽으로도 재사용하지 않습니다. 처리 도중 revision이 달라진 요청도 저장하지 않습니다. 표시/캐시 금지 정리는 요청 시 수행하며, 배포 시 정책 변경 전수 정리 작업은 아직 서버 시작/운영 UI에 연결하지 않았습니다.
 
 논리 키는 소스 + 검색/상세 + 검색어/앨범 키 + sampleKind + parserVersion + policyRevision입니다. 검색어는 앞뒤 공백만 제거합니다. 대소문자·내부 공백·NFKC/플랫폼 차이를 임의로 합치지 않습니다. locale/filter/cursor는 아직 지원하지 않으며 향후 추가할 경우 반드시 키에 포함해야 합니다.
 

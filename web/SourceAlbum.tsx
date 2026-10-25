@@ -1,44 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { SourceAlbumResponse } from "../src/shared/source-album.ts";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { SourceAlbumSave } from "./SourceAlbumSave.tsx";
+import { ConnectionBlocked } from "./connection.ts";
 import type { SourceAlbumSelection } from "./source-album-response.ts";
-import { ApiError, errorMessage, sourceAlbumApi, type User } from "./api.ts";
+import { ApiError, errorMessage, sourceAlbumApi, type SourceAlbumView, type User } from "./api.ts";
 import { Dialog } from "./dialogs.tsx";
 import { sourceNames } from "./catalog-ui.tsx";
 import { sourceMessage, sourceRetriable, sourceTime } from "./source-ui.ts";
 import { Icon } from "./icons.tsx";
 
-export function SourceAlbum({ user, selection, now, waitUntil, onLimited, onInvalidate, onClose }: {
+export function SourceAlbum({ user, selection, now, waitUntil, onLimited, onInvalidate, onClose, onLibrary, onDraftChange }: {
   user: User; selection: SourceAlbumSelection; now: number; waitUntil: number;
   onLimited: (until: number, scope: "source" | "http") => void;
-  onInvalidate: () => void; onClose: () => void;
+  onInvalidate: () => void; onClose: () => void; onLibrary: () => void; onDraftChange: (present: boolean) => void;
 }) {
   const api = useMemo(() => sourceAlbumApi(user), [user.id, user.sessionId]);
-  const [response, setResponse] = useState<SourceAlbumResponse | null>(null), [busy, setBusy] = useState(false);
+  const [response, setResponse] = useState<SourceAlbumView | null>(null), [busy, setBusy] = useState(false);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [offset, setOffset] = useState(0);
-  const expiry = useRef(0);
+  const expiry = useRef(0), saveExpiry = useRef(0);
+  const [saving, setSaving] = useState(false), blocked = useContext(ConnectionBlocked);
   const controller = useRef<AbortController | null>(null), sequence = useRef(0), feedback = useRef<HTMLDivElement>(null), tracksHeading = useRef<HTMLHeadingElement>(null);
   const seconds = Math.max(0, Math.ceil((waitUntil - now) / 1000));
   function cancel() { sequence.current++; controller.current?.abort(); controller.current = null; setBusy(false); setResponse(null); }
-  async function read() {
-    if (controller.current || Date.now() < waitUntil) return;
+  async function read(signal?: AbortSignal) {
+    if (controller.current || Date.now() < waitUntil || blocked || signal?.aborted) return null;
     const current = new AbortController(), id = ++sequence.current; controller.current = current;
+    const stop = () => { if (controller.current === current) cancel(); };
+    signal?.addEventListener("abort", stop, { once: true });
     setBusy(true); setResponse(null); setError(""); setNotice(""); setOffset(0);
     try {
       const loaded = await api(selection, current.signal), value = loaded.response;
-      if (current.signal.aborted || id !== sequence.current) return;
+      if (current.signal.aborted || id !== sequence.current) return null;
       const failure = value.result.ok ? value.result.refreshFailure : value.result;
       if (failure?.retryAt) onLimited(failure.retryAt, "source");
       if (!value.result.ok && ["content_removed", "policy_disabled", "blocked", "not_found", "policy_changed", "result_expired"].includes(value.result.code)) onInvalidate();
-      expiry.current = performance.now() + (loaded.expiresInMs ?? 0); setResponse(value);
+      expiry.current = performance.now() + (loaded.expiresInMs ?? 0); saveExpiry.current = performance.now() + loaded.saveExpiresInMs; setResponse(value); return value;
     } catch (cause) {
-      if (current.signal.aborted || id !== sequence.current) return;
+      if (current.signal.aborted || id !== sequence.current) return null;
       if (cause instanceof ApiError && cause.retryAt) onLimited(cause.retryAt, "http");
       setError(cause instanceof ApiError && cause.code === "result_expired" ? "확인하는 동안 자료의 보관 기한이 지났습니다. 다시 조회해 주세요."
         : cause instanceof ApiError && cause.code === "invalid_response" ? "선택한 앨범의 응답을 확인하지 못했습니다. 출처·자료 종류·수록곡 정보가 일치하지 않습니다."
         : cause instanceof ApiError && cause.code === "album_timeout" || cause instanceof DOMException && cause.name === "TimeoutError"
           ? "상세 조회 시간이 초과되었습니다. 확인하지 못한 자료는 표시하지 않습니다." : errorMessage(cause));
       if (cause instanceof ApiError && ["invalid_response", "result_expired"].includes(cause.code)) onInvalidate();
+      return null;
     } finally {
+      signal?.removeEventListener("abort", stop);
       if (!current.signal.aborted && id === sequence.current) {
         controller.current = null; setBusy(false); requestAnimationFrame(() => feedback.current?.focus());
       }
@@ -57,6 +63,7 @@ export function SourceAlbum({ user, selection, now, waitUntil, onLimited, onInva
     const timer = setTimeout(() => { setResponse(null); setOffset(0); setNotice("자료의 보관 기한이 지나 상세를 지웠습니다. 다시 조회해 주세요."); onInvalidate(); }, Math.min(remaining, 2_147_483_647));
     return () => clearTimeout(timer);
   }, [response]);
+  useEffect(() => { if (blocked) { cancel(); setNotice("연결 후 상세를 다시 확인해 주세요."); } }, [blocked]);
   const result = response?.result, failure = result?.ok ? result.refreshFailure : result;
   const canRead = !response || result?.ok || failure && sourceRetriable(failure);
   const detail = result?.ok ? result.data : null;
@@ -76,6 +83,9 @@ export function SourceAlbum({ user, selection, now, waitUntil, onLimited, onInva
       </div>
       {failure && <p className={result?.ok ? "notice" : "search-explanation"}>{result?.ok ? "갱신 실패: " : ""}{sourceMessage(failure)}</p>}
       {response && !response.policy.collect.allowed && response.policy.display.allowed && <p className="field-help">새 자료 수집은 현재 허용되지 않습니다.</p>}
+      <SourceAlbumSave user={user} selection={selection} response={response} deadline={saveExpiry.current} now={now} waitUntil={waitUntil}
+        onDraftChange={onDraftChange} detailBusy={busy} onRefresh={read} onBusy={setSaving} onLimited={(until) => onLimited(until, "http")} onLibrary={onLibrary}
+        onReject={() => { setResponse(null); onInvalidate(); }} />
       {detail && result?.ok && <>
         <section className="source-album-information" aria-label="출처의 앨범 정보">
           <h3>{detail.title}</h3><p className="field-help">출처 상세 페이지의 앨범 제목입니다. 검색 목록의 표시명은 바꾸지 않습니다.</p>
@@ -99,7 +109,7 @@ export function SourceAlbum({ user, selection, now, waitUntil, onLimited, onInva
       </>}
       {seconds > 0 && <p className="notice" role="status">요청 제한으로 {seconds}초 후 직접 다시 조회할 수 있습니다. 자동으로 재시도하지 않습니다.</p>}
       <p className="source-album-footnote">조회한 앨범과 곡은 내 라이브러리에 자동 저장되지 않습니다. 앱 내 재생은 아직 지원하지 않으며 원문 열기는 청취 기록을 만들지 않습니다.</p>
-      <footer className="dialog-actions">{canRead && <button className="secondary" disabled={busy || seconds > 0} onClick={() => { void read(); }}>{result?.ok ? "상세 새로고침" : "다시 조회"}</button>}<button className="primary" onClick={onClose}>검색으로 돌아가기</button></footer>
+      <footer className="dialog-actions">{canRead && <button className="secondary" disabled={busy || saving || seconds > 0} onClick={() => { void read(); }}>{result?.ok ? "상세 새로고침" : "다시 조회"}</button>}<button className="primary" onClick={onClose}>검색으로 돌아가기</button></footer>
     </div>
   </Dialog>;
 }

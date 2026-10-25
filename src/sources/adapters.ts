@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import type Database from "better-sqlite3";
 import { PARSER_VERSION, inspectCapturedPage } from "./parsers.ts";
 import { productAccess, sourceAssessments } from "./policies.ts";
-import { captureSourcePage } from "./transport.ts";
+import { productReviewRevision } from "./review-policy.ts";
+import { getSourceCapture } from "./transport.ts";
 import type { PageKind, SourceId } from "./types.ts";
 import { createMetadataService } from "./adapters/service.ts";
 import type { AdapterResult, MetadataPolicy } from "./adapters/contracts.ts";
@@ -21,7 +21,7 @@ export interface SourceAdapter {
 const instances = new WeakMap<Database.Database, Readonly<Record<SourceId, SourceAdapter>>>();
 
 export function metadataPolicy(source: SourceId, kind: PageKind): MetadataPolicy {
-  return { revision: createHash("sha256").update(JSON.stringify(sourceAssessments[source])).digest("hex"),
+  return { revision: productReviewRevision(source),
     collect: productAccess(source, kind), cache: productAccess(source, "cache"), display: productAccess(source, "display") };
 }
 
@@ -30,7 +30,7 @@ export function getSourceAdapters(db: Database.Database): Readonly<Record<Source
   const previous = instances.get(db);
   if (previous) return previous;
   const service = createMetadataService(db, {
-    sampleKind: "live-capture", capture: captureSourcePage,
+    sampleKind: "live-capture", capture: getSourceCapture(db),
     parser: { version: PARSER_VERSION, parse: inspectCapturedPage },
     policy: metadataPolicy,
     clock: { now: () => performance.timeOrigin + performance.now(),

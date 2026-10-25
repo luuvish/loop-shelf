@@ -3,7 +3,7 @@ export type { AlbumObservationData } from "../sources/metadata.ts";
 
 export class CatalogError extends Error {
   readonly code: "invalid_input" | "parse_failure" | "policy_disabled" | "not_found" | "unmanaged_source" | "source_suppressed" | "observation_conflict" | "removal_conflict"
-    | "review_not_required" | "stale_review" | "invalid_mapping" | "adoption_conflict" | "sample_kind_conflict" | "content_expired" | "retention_conflict";
+    | "review_not_required" | "stale_review" | "invalid_mapping" | "adoption_conflict" | "sample_kind_conflict" | "content_expired" | "retention_conflict" | "cursor_invalidated";
   constructor(code: CatalogError["code"], message: string) { super(message); this.code = code; }
 }
 

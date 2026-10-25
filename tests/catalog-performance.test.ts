@@ -77,8 +77,8 @@ test("benchmark CLI uses an isolated disposable database and emits measured serv
   assert.deepEqual(readdirSync(dir).sort(), ["do-not-open.sqlite", "report.json"]);
   const report = JSON.parse(readFileSync(output, "utf8"));
   assert.equal(report.fixture.albums, 20); assert.equal(report.fixture.tracks, 60); assert.equal(report.method.samples, 3);
-  assert.equal(report.measurements.filter((row: { layer: string }) => row.layer === "authenticated-inject").length, 3);
-  assert.equal(report.measurements.length, 24);
+  assert.equal(report.measurements.filter((row: { layer: string }) => row.layer === "authenticated-inject").length, 6);
+  assert.equal(report.measurements.length, 42);
   for (const row of report.measurements) {
     assert.equal(row.samplesMs.length, 3); assert.ok(row.p50Ms >= 0 && row.p95Ms >= row.p50Ms);
     assert.ok(Number.isFinite(row.firstMs));

@@ -66,4 +66,4 @@
 
 최초 내부 서비스 검증은 Node 332개·브라우저 15개였습니다. 승인 수명 영속화/재시도, 만료된 같은 곡 목록의 검토 유지, JSON으로 외부 정보/기한을 복원하지 못하는 3개를 추가했습니다. 2026-10-25의 최종 검증은 strict 타입 검사·프로덕션 빌드·전체 **361개 Node 테스트**와 **15개 Playwright 시나리오**를 통과했습니다. 이번 스키마/개인 화면 변경의 범위는 [자료 종류·JSON v2 계약](CATALOG_KINDS.md)에 기록합니다.
 
-0012 [보관 수명 모델](CATALOG_RETENTION.md)에 이어 [개인 DTO/JSON v2와 내부 승인 수명 연결](CATALOG_KINDS.md)을 구현했습니다. 선택 fingerprint/저장 사전확인과 실제 세션 저장 HTTP API도 [23개 추가 검사](SOURCE_SAVE_API.md)로 검증했습니다. 다음은 React 저장 확인 화면입니다. 제품 live guard는 여전히 닫혀 있으며 사이트 정책·공용 live 경계·실사이트 검증을 완료한 뒤에만 활성화할 수 있습니다.
+0012 [보관 수명 모델](CATALOG_RETENTION.md)에 이어 [개인 DTO/JSON v2와 내부 승인 수명 연결](CATALOG_KINDS.md)을 구현했습니다. 선택 fingerprint/저장 사전확인과 실제 세션 저장 HTTP API도 [23개 추가 검사](SOURCE_SAVE_API.md)로 검증했습니다. [React 저장 확인 화면](SOURCE_SAVE_UI.md)도 연결했으며 정확한 원본별 개인 조회와 명시적 재확인을 제공합니다. 제품 live guard는 여전히 닫혀 있으며 사이트 정책·공용 live 경계·실사이트 검증을 완료한 뒤에만 활성화할 수 있습니다.

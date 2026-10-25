@@ -3,7 +3,7 @@ import { normalizeSearch } from "../database/connection.ts";
 import type { SourceId } from "../sources/types.ts";
 import { reconcileCatalogRetention } from "./retention.ts";
 
-// Preserve the measured album-first plan, including on databases without ANALYZE statistics.
+// Keep album-first reads; 0015 supplies normalized title order without a full sort on each page.
 export const availableAlbums = `SELECT a.id FROM album a CROSS JOIN entity e ON e.id=a.id
   JOIN catalog_album_state c ON c.album_id=a.id JOIN source_entity s ON s.id=c.source_entity_id
   JOIN catalog_source_kind sk ON sk.source_entity_id=s.id AND sk.sample_kind='synthetic'

@@ -14,7 +14,7 @@ export interface TransportFailure {
   retryAt?: number;
 }
 export type TransportResult = { ok: true; page: CapturedPage } | TransportFailure;
-export type AccessDecision = { allowed: true } | { allowed: false; code: "policy_disabled" | "blocked" };
+export type AccessDecision = { allowed: true; revision?: string } | { allowed: false; code: "policy_disabled" | "blocked" };
 export interface Address { address: string; family: 4 | 6 }
 export interface WireResponse {
   status: number;
@@ -28,6 +28,16 @@ export interface TransportClock {
   now(): number;
   timer(ms: number, callback: () => void): () => void;
 }
+export interface SourcePermit {
+  beginAttempt(signal: AbortSignal): Promise<void>;
+  assertRunning(signal: AbortSignal): Promise<void>;
+  rateLimit(header: string | undefined, signal: AbortSignal): Promise<number>;
+  endAttempt(signal: AbortSignal): Promise<void>;
+  release(signal: AbortSignal): Promise<void>;
+}
+export interface SourceCoordinator {
+  acquire(source: SourceId, signal: AbortSignal, remainingMs: number): Promise<SourcePermit>;
+}
 /** Trusted in-process dependencies, never populated from an HTTP request or environment flag. */
 export interface TransportDependencies {
   authorize(request: SourceRequest, url: URL): AccessDecision;
@@ -35,6 +45,7 @@ export interface TransportDependencies {
   open(url: URL, address: Address, signal: AbortSignal): Promise<WireResponse>;
   clock: TransportClock;
   sampleKind: CapturedPage["sampleKind"];
+  coordinator?: SourceCoordinator;
 }
 export const TRANSPORT_LIMITS = Object.freeze({
   timeoutMs: 10_000, intervalMs: 3_000, maxBodyBytes: 5 * 1024 * 1024,

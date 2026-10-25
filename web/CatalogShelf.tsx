@@ -6,8 +6,9 @@ import { Icon } from "./icons.tsx";
 
 import { sourceNames, kindLabel, useTask, statusOf, SourceInfo } from "./catalog-ui.tsx";
 import { CatalogBrowser, CatalogCandidatePicker } from "./CatalogBrowser.tsx";
+import { CatalogTrackSearch } from "./CatalogTrackSearch.tsx";
 const draftOf = (item: CatalogLibraryItem): CatalogDraft => ({ titleOverride: item.titleOverride, note: item.note, favorite: item.favorite });
-type Modal = { kind: "edit" | "delete"; item: CatalogLibraryItem } | { kind: "sources"; id: string } | { kind: "browse" } | null;
+type Modal = { kind: "edit" | "delete"; item: CatalogLibraryItem } | { kind: "sources"; id: string } | { kind: "browse" | "tracks" } | null;
 
 
 export function CatalogShelf({ user, refreshToken = 0 }: { user: User; refreshToken?: number }) {
@@ -39,7 +40,7 @@ export function CatalogShelf({ user, refreshToken = 0 }: { user: User; refreshTo
   function paginate(value: number) { setOffset(value); heading.current?.focus(); heading.current?.scrollIntoView({ block: "start" }); }
   return <>
     <div className="topline"><span>라이브러리 <span className="crumb">/</span> 저장한 카탈로그</span><span className="private-label"><span />나만의 컬렉션</span></div>
-    <header className="page-header catalog-header"><div><span className="eyebrow">SAVED CATALOG</span><h1 ref={heading} tabIndex={-1}>저장한 카탈로그<span className="heading-dot">.</span></h1><p>앨범과 곡에 남긴 나의 제목, 메모와 즐겨찾기.</p></div><div className="catalog-header-actions"><button className="primary" disabled={task.busy} onClick={() => setModal({ kind: "browse" })}>카탈로그 둘러보기</button><button className="secondary" disabled={task.busy || loading} onClick={refresh}>카탈로그 새로고침</button></div></header>
+    <header className="page-header catalog-header"><div><span className="eyebrow">SAVED CATALOG</span><h1 ref={heading} tabIndex={-1}>저장한 카탈로그<span className="heading-dot">.</span></h1><p>앨범과 곡에 남긴 나의 제목, 메모와 즐겨찾기.</p></div><div className="catalog-header-actions"><button className="primary" disabled={task.busy} onClick={() => setModal({ kind: "browse" })}>카탈로그 둘러보기</button><button className="secondary" disabled={task.busy} onClick={() => setModal({ kind: "tracks" })}>수록곡 검색</button><button className="secondary" disabled={task.busy || loading} onClick={refresh}>카탈로그 새로고침</button></div></header>
     <section className="collection-banner catalog-banner" aria-label="카탈로그 안내"><div className="banner-icon" aria-hidden="true"><Icon name="info" /></div><div><strong>자료 종류와 보관 상태를 확인해 주세요</strong><p>합성 자료와 외부 자료 참조를 구분해 표시합니다. 원본이 없어도 개인 내용은 유지됩니다. 카탈로그 둘러보기는 합성 검증 자료이며 외부 자동 수집과 재생은 아직 제공하지 않습니다.</p></div></section>
     <p className="field-help catalog-backup">개인 내용과 출처 연결은 내 계정 → 데이터 관리의 카탈로그 JSON으로 보관합니다. 원본이 없는 설치에서는 미연결 항목으로 복원됩니다.</p>
     <div className="library-toolbar"><form className="search-form" role="search" onSubmit={submit}><Icon name="search" /><label className="sr-only" htmlFor="catalog-search">저장한 카탈로그 검색</label><input id="catalog-search" type="search" value={search} maxLength={200} onChange={(event) => setSearch(event.target.value)} placeholder="제목·메모·연결한 앨범 제목" /><button>검색</button></form><span className="sort-label">최근 저장 순</span></div>
@@ -67,6 +68,7 @@ export function CatalogShelf({ user, refreshToken = 0 }: { user: User; refreshTo
         </> : <div className="empty-state"><div className="empty-record" aria-hidden="true"><span /></div><h2>{query || kind || favorite ? "조건에 맞는 카탈로그 항목이 없어요" : "저장한 카탈로그가 없어요"}</h2><p>{query || kind || favorite ? "검색어나 항목 종류·즐겨찾기 조건을 바꿔 보세요." : "카탈로그 둘러보기에서 앨범과 곡을 저장해 보세요.\n관리 중인 자료가 없다면 내 음악 선반에 앨범 주소를 직접 보관할 수 있습니다."}</p></div>}
     </section>
     {modal?.kind === "browse" && <CatalogBrowser api={api} onClose={() => setModal(null)} onSaved={() => changed("저장 상태를 목록에 반영했습니다.", false)} />}
+    {modal?.kind === "tracks" && <CatalogTrackSearch user={user} onClose={() => setModal(null)} onSaved={() => changed("저장 상태를 목록에 반영했습니다.", false)} />}
     {modal?.kind === "edit" && <CatalogEditor item={modal.item} api={api} onClose={() => setModal(null)} onSaved={changed} />}
     {modal?.kind === "delete" && <CatalogDelete item={modal.item} api={api} onClose={() => setModal(null)} onDeleted={changed} />}
     {modal?.kind === "sources" && <CatalogSources id={modal.id} api={api} onClose={() => { setModal(null); requestAnimationFrame(() => heading.current?.focus()); }} onChanged={(message) => changed(message, false)} />}

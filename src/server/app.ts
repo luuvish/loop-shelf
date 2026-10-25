@@ -13,21 +13,26 @@ import { BookmarkDeletions, DeletionError } from "../library/deletions.ts";
 import { ARCHIVE_MAX_BYTES } from "../shared/transfer.ts";
 import { CatalogLibraryError, CatalogLibraryStore } from "../library/catalog.ts";
 import { CatalogBrowseStore } from "../catalog/browse.ts";
+import { CatalogTrackSearchStore } from "../catalog/track-search.ts";
 import { CatalogTransfer } from "../library/catalog-transfer.ts";
 import { registerSearchAndSourceAlbum } from "./search.ts";
+import { parseSourceAlbumInput } from "../source-album/input.ts";
 import { reconcileCatalogRetention } from "../catalog/retention.ts";
 import { CatalogError } from "../catalog/input.ts";
+import { verifyCatalogSearchIndex } from "../catalog/search-index.ts";
 
 export async function buildApp(db: Database.Database, config: AuthConfig) {
   assertMigrated(db);
+  await withDatabase(db, async () => { reconcileCatalogRetention(db); verifyCatalogSearchIndex(db); });
   const app = Fastify({ logger: false, trustProxy: false, bodyLimit: 32 * 1024 });
   const auth = betterAuth(authOptions(db, config));
   await auth.$context;
   const bookmarks = new BookmarkStore(db);
   const catalogLibrary = new CatalogLibraryStore(db);
   const catalogBrowse = new CatalogBrowseStore(db);
+  const catalogTracks = new CatalogTrackSearchStore(db);
   const deletions = new BookmarkDeletions(db);
-  await withDatabase(db, async () => { deletions.purge(); reconcileCatalogRetention(db); });
+  await withDatabase(db, async () => { deletions.purge(); });
   let closing = false;
   const cleanup = setInterval(() => {
     void withDatabase(db, async () => { if (!closing && db.open) { deletions.purge(); reconcileCatalogRetention(db); } })
@@ -95,16 +100,32 @@ export async function buildApp(db: Database.Database, config: AuthConfig) {
       if (expectedSession !== undefined && expectedSession !== session.session.id) {
         reply.code(401); return { code: "session_changed" };
       }
-      reply.header("X-LoopShelf-User", session.user.id);
+      reply.header("X-LoopShelf-User", session.user.id).header("X-LoopShelf-Session", session.session.id);
       return action(session.user.id, session.session.id);
     });
   }
   app.get("/api/me", (request, reply) => forUser(request, reply, (userId) => ({ userId })));
   const routeId = (request: FastifyRequest) => z.object({ id: z.uuid() }).strict().parse(request.params).id;
   app.get("/api/catalog/albums", (request, reply) => forUser(request, reply, (userId) => catalogBrowse.list(userId, request.query)));
+  app.get("/api/catalog/tracks", (request, reply) => forUser(request, reply, (_userId, sessionId) => {
+    reply.header("Vary", "Cookie, X-LoopShelf-Session");
+    if (request.headers["x-loopshelf-session"] === undefined) { reply.code(428); return { code: "session_required" }; }
+    reply.header("X-LoopShelf-Session", sessionId);
+    return catalogTracks.search(request.query);
+  }));
   app.get("/api/catalog/albums/:id", (request, reply) => forUser(request, reply, (userId) => catalogBrowse.detail(userId, routeId(request), request.query)));
   app.get("/api/library/catalog/:id/source-candidates", (request, reply) => forUser(request, reply, (userId) => catalogBrowse.candidates(userId, routeId(request), request.query)));
   // Personal saves of existing synthetic catalog entities; no catalog fetch, ingestion, or operator endpoints.
+  app.get("/api/library/catalog/source-save", (request, reply) => forUser(request, reply, (userId, sessionId) => {
+    reply.header("Vary", "Cookie, X-LoopShelf-Session");
+    if (request.headers["x-loopshelf-session"] === undefined) { reply.code(428); return { code: "session_required" }; }
+    reply.header("X-LoopShelf-Session", sessionId);
+    // Parse failures are input errors; never forward arbitrary URLs to a source.
+    let ref;
+    try { ref = parseSourceAlbumInput(request.query); }
+    catch { reply.code(400); return { code: "invalid_input" }; }
+    return catalogLibrary.savedSourceAlbum(userId, ref);
+  }));
   app.get("/api/library/catalog", (request, reply) => forUser(request, reply, (userId) => catalogLibrary.list(userId, request.query)));
   app.post("/api/library/catalog", (request, reply) => forUser(request, reply, (userId) => {
     z.object({}).strict().parse(request.query);

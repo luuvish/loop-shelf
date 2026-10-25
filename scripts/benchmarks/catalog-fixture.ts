@@ -24,12 +24,13 @@ export function syntheticAlbum(index: number, tracks: number): CatalogInput {
     parserVersion: fixtureVersion, bodySha256: createHash("sha256").update(JSON.stringify(data)).digest("hex"), sampleKind: "synthetic" }, warnings: [] };
 }
 
-export async function seedBenchmark(db: Database.Database, owner: string, other: string, albums: number, tracks: number, progress: (count: number) => void = () => {}) {
+export async function seedBenchmark(db: Database.Database, owner: string, other: string, albums: number, tracks: number, progress: (count: number) => void = () => {},
+  makeAlbum: (index: number, tracks: number) => CatalogInput = syntheticAlbum) {
   const catalog = new CatalogStore(db), library = new CatalogLibraryStore(db);
   const albumIds: string[] = [], sourceIds: string[] = [], savedIds: string[] = [];
   const saveCount = Math.min(4900, albums - 2);
   for (let i = 0; i < albums; i++) {
-    const [result] = await catalog.ingestSynthetic(syntheticAlbum(i, tracks));
+    const [result] = await catalog.ingestSynthetic(makeAlbum(i, tracks));
     albumIds.push(result!.albumId); sourceIds.push(result!.sourceEntityId);
     await withDatabase(db, async () => {
       if (i < saveCount) {
@@ -42,10 +43,16 @@ export async function seedBenchmark(db: Database.Database, owner: string, other:
   }
   // A bounded set of personal source judgments exercises the EXISTS search branch.
   const links = Math.min(100, Math.floor(saveCount / 2));
+  const destinations = Array.from({ length: links }, (_, i) => albums - 1 - i);
+  // At some small scales an album would link to itself. Swap two destinations to retain uniqueness.
+  for (let i = 0; i < links; i++) if (destinations[i] === i * 2) {
+    const next = (i + 1) % links;
+    [destinations[i], destinations[next]] = [destinations[next]!, destinations[i]!];
+  }
   await withDatabase(db, async () => {
     for (let i = 0; i < links; i++) {
       const item = library.get(owner, savedIds[i * 2]!);
-      library.connect(owner, item.id, { version: item.version, sourceEntityId: sourceIds[albums - 1 - i]! });
+      library.connect(owner, item.id, { version: item.version, sourceEntityId: sourceIds[destinations[i]!]! });
     }
     const now = "2026-10-24T00:00:00.000Z";
     const archive: CatalogArchive = { format: "loopshelf-catalog", schemaVersion: 1, sampleKind: "synthetic", exportedAt: now,

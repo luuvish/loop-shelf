@@ -18,6 +18,8 @@
     "catalog:remove": "node --env-file-if-exists=.env scripts/catalog.ts remove",
     "catalog:review": "node --env-file-if-exists=.env scripts/catalog.ts review",
     "catalog:adopt": "node --env-file-if-exists=.env scripts/catalog.ts adopt",
+    "catalog:reindex": "node --env-file-if-exists=.env scripts/catalog.ts reindex",
+    "source:requests": "node --env-file-if-exists=.env scripts/source-requests.ts",
     "account:create": "node --env-file-if-exists=.env scripts/account.ts create",
     "account:reset-password": "node --env-file-if-exists=.env scripts/account.ts reset-password",
     "dev": "node --env-file-if-exists=.env src/server/main.ts --dev",
@@ -25,6 +27,7 @@
     "icons": "node scripts/generate-icons.ts",
     "test:e2e": "npm run build && playwright test",
     "bench:catalog": "node scripts/bench-catalog.ts",
+    "bench:concurrency": "node scripts/bench-catalog-concurrency.ts",
     "bench:retention": "node scripts/bench-catalog-retention.ts"
   },
   "dependencies": {
